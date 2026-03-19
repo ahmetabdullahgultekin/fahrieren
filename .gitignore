@@ -1,0 +1,9 @@
+# Environment variables — never commit real keys
+.env
+.env.local
+.env.*.local
+
+# Vite build output — contains inlined secrets from env vars at build time
+assets/
+dist/
+build/
