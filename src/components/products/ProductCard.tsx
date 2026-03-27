@@ -24,7 +24,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                                                  }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [imageError, setImageError] = useState(false);
-    const {language} = useTranslation();
+    const {language, t} = useTranslation();
 
     const nextImage = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -56,8 +56,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
     };
 
     const handleImageError = () => {
+        console.error('Image load error for product:', product.id, product.images[currentImageIndex]);
         setImageError(true);
     };
+
+    const placeholderImage = 'https://via.placeholder.com/400x300/e5e7eb/6b7280?text=Resim+Yüklenemedi';
 
     const currentImage = product.images[currentImageIndex] || '/images/product-placeholder.svg';
     const displayImage = imageError ? '/images/product-placeholder.svg' : currentImage;
@@ -95,7 +98,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         alt={product.title[language]}
                         className="w-full h-full object-cover rounded-lg"
                         onError={handleImageError}
-                        loading="lazy"
                     />
 
                     {product.images.length > 1 && !imageError && (
@@ -159,7 +161,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
                         <div className="flex items-center text-sm text-gray-500">
                             <Eye className="w-4 h-4 mr-1"/>
-                            <span>{product.views || 0} görüntüleme</span>
+                            <span>{product.views || 0} {t('products.viewCount')}</span>
                         </div>
                     </div>
 
@@ -168,7 +170,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                             onClick={() => onViewDetails(product)}
                             className="btn-primary"
                         >
-                            Detayları Gör
+                            {t('products.detailsView')}
                         </button>
 
                         <button
@@ -176,7 +178,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                             className="btn-secondary flex items-center space-x-1"
                         >
                             <Phone className="w-4 h-4"/>
-                            <span>Ara</span>
+                            <span>{t('products.call')}</span>
                         </button>
 
                         <button
@@ -184,7 +186,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                             className="btn-secondary flex items-center space-x-1"
                         >
                             <Share2 className="w-4 h-4"/>
-                            <span>Paylaş</span>
+                            <span>{t('products.share')}</span>
                         </button>
                     </div>
                 </div>
@@ -195,7 +197,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     // Grid view (default)
     return (
         <div
-            className="card overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 group scroll-animate"
+            className="card overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 group"
             onClick={() => onViewDetails(product)}
         >
             {/* Image Section */}
@@ -243,7 +245,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                     }`}>
-                        {product.inStock ? 'Stokta' : 'Tükendi'}
+                        {product.inStock ? t('products.inStock') : t('products.outOfStock')}
                     </span>
                 </div>
 
@@ -293,7 +295,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
                 <div className="flex items-center text-sm text-gray-500 mb-4">
                     <Eye className="w-4 h-4 mr-1"/>
-                    <span>{product.views || 0} görüntüleme</span>
+                    <span>{product.views || 0} {t('products.viewCount')}</span>
                 </div>
 
                 {/* Action Buttons */}
@@ -302,13 +304,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         onClick={() => onViewDetails(product)}
                         className="flex-1 btn-primary text-sm"
                     >
-                        Detayları Gör
+                        {t('products.detailsView')}
                     </button>
 
                     <button
                         onClick={handleContact}
                         className="p-2 bg-accent-600 hover:bg-accent-700 text-white rounded-lg transition-colors"
-                        title="Ara"
+                        title={t('products.call')}
                     >
                         <Phone className="w-4 h-4"/>
                     </button>
@@ -316,7 +318,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                     <button
                         onClick={handleShare}
                         className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                        title="Paylaş"
+                        title={t('products.share')}
                     >
                         <Share2 className="w-4 h-4"/>
                     </button>

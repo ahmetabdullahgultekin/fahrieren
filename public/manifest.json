@@ -1,27 +1,57 @@
 {
-  "short_name": "Fahri Eren",
   "name": "Fahri Eren - Güvenilir Ticaret Platformu",
+  "short_name": "Fahri Eren",
+  "description": "Türkiye'nin güvenilir ticaret platformu. Emlak, araç, tarım ürünleri ve inşaat malzemelerinde kaliteli hizmet.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "tr",
+  "categories": [
+    "business",
+    "shopping",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "logo192.png",
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
       "type": "image/png",
-      "sizes": "192x192"
+      "purpose": "any"
     },
     {
-      "src": "logo512.png",
+      "src": "/logo.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "sizes": "512x512"
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#0d9488",
-  "background_color": "#ffffff",
-  "description": "25 yıllık tecrübe ile emlak, araç, inşaat malzemeleri ve tarım ürünleri ticareti."
+  "shortcuts": [
+    {
+      "name": "Ürünler",
+      "short_name": "Ürünler",
+      "description": "Tüm ürünleri görüntüle",
+      "url": "/urunler"
+    },
+    {
+      "name": "İletişim",
+      "short_name": "İletişim",
+      "description": "Fahri Eren ile iletişime geç",
+      "url": "/iletisim"
+    }
+  ]
 }
-

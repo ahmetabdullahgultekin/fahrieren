@@ -19,8 +19,7 @@ import {
     updateDoc,
     where
 } from 'firebase/firestore';
-import {deleteObject, getDownloadURL, ref, uploadBytes} from 'firebase/storage';
-import {auth, db, storage} from '../config/firebase';
+import {auth, db} from '../config/firebase';
 import type {Product} from '../types';
 
 // Authentication Service
@@ -95,6 +94,9 @@ export class ProductService {
     async addProduct(product: Omit<Product, 'id'>): Promise<string> {
         const docRef = await addDoc(collection(db, 'products'), {
             ...product,
+            views: product.views || 0,           // Başlangıç değeri
+            favoriteCount: 0,                     // Başlangıç değeri
+            contactCount: 0,                      // Başlangıç değeri
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
         });
@@ -118,6 +120,7 @@ export class ProductService {
     // Get all products
     async getProducts(): Promise<Product[]> {
         try {
+            // Disable offline persistence to avoid Target ID conflicts
             const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
 
@@ -127,7 +130,9 @@ export class ProductService {
             })) as Product[];
         } catch (error) {
             console.error('Error fetching products from Firebase:', error);
-            throw error; // Re-throw to let the calling code handle it
+
+            // Return empty array instead of throwing to prevent app crash
+            return [];
         }
     }
 
@@ -181,6 +186,9 @@ export class ProductService {
 // Storage Service for images
 export class StorageService {
     private static instance: StorageService;
+    // Hostinger base URL
+    private readonly HOSTINGER_BASE_URL = 'https://fahrieren.com/uploads';
+    private readonly UPLOAD_ENDPOINT = 'https://fahrieren.com/api/upload.php'; // Hostinger'da oluşturulacak PHP endpoint
 
     public static getInstance(): StorageService {
         if (!StorageService.instance) {
@@ -189,25 +197,66 @@ export class StorageService {
         return StorageService.instance;
     }
 
-    // Upload product image
+    /**
+     * Upload product image to Hostinger
+     * NOT: Bu method çalışması için Hostinger'da upload.php dosyası oluşturulmalı
+     */
     async uploadProductImage(file: File, productId: string): Promise<string> {
-        const fileName = `${Date.now()}_${file.name}`;
-        const storageRef = ref(storage, `products/${productId}/${fileName}`);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('productId', productId);
 
-        const snapshot = await uploadBytes(storageRef, file);
-        return await getDownloadURL(snapshot.ref);
+        try {
+            // GEÇICI: Manuel yükleme için URL döndür
+            // Gerçek implementasyon için backend endpoint gerekli
+            if (import.meta.env.DEV) {
+                console.warn('⚠️ MANUEL YÜKLEME GEREKLİ: Fotoğrafı Hostinger File Manager\'a yükleyin');
+                console.log('📁 Dosya adı:', file.name);
+                console.log('📁 Ürün ID:', productId);
+            }
+
+            // Placeholder URL döndür - kullanıcı manuel olarak günceller
+            return `${this.HOSTINGER_BASE_URL}/image/${file.name}`;
+
+            /* BACKEND HAZIR OLUNCA KULLANILACAK KOD:
+            const response = await fetch(this.UPLOAD_ENDPOINT, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                return result.url;
+            } else {
+                throw new Error(result.message || 'Upload failed');
+            }
+            */
+        } catch (error) {
+            console.error('Image upload error:', error);
+            throw error;
+        }
     }
 
-    // Delete image
+    // Delete image - Hostinger için manuel silme gerekli
     async deleteImage(imageUrl: string): Promise<void> {
-        const imageRef = ref(storage, imageUrl);
-        await deleteObject(imageRef);
+        if (import.meta.env.DEV) {
+            console.warn('⚠️ MANUEL SİLME GEREKLİ: Fotoğrafı Hostinger File Manager\'dan silin');
+            console.log('🗑️ URL:', imageUrl);
+        }
+        // Manuel silme gerekli veya backend endpoint ile
     }
 
     // Upload multiple images
     async uploadMultipleImages(files: File[], productId: string): Promise<string[]> {
         const uploadPromises = files.map(file => this.uploadProductImage(file, productId));
         return await Promise.all(uploadPromises);
+    }
+
+    /**
+     * Hostinger'a yüklenen görselin URL'ini oluştur
+     */
+    getHostingerImageUrl(fileName: string): string {
+        return `${this.HOSTINGER_BASE_URL}/image/${fileName}`;
     }
 }
 

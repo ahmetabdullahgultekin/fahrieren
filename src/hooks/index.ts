@@ -1,41 +1,12 @@
-import {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import apiManager from '../services/apiManager';
 import type {ContactForm, FilterOptions, Product} from '../types';
 
 // Re-export the translation hook from context
 export {useTranslation, useLanguage} from '../contexts/LanguageContext';
 
-// Re-export scroll animation hook
-export {useScrollAnimation} from './useScrollAnimation';
-
 // SEO Hook
-export const useSEO = (pageType: string) => {
-    const pageTitles: Record<string, string> = {
-        home: 'Fahri Eren | Emlak, Arac, Tarim Urunleri, Insaat Malzemeleri',
-        products: 'Urunlerimiz | Fahri Eren Ticaret',
-        about: 'Hakkimizda | Fahri Eren Ticaret',
-        contact: 'Iletisim | Fahri Eren Ticaret',
-        partners: 'Is Ortaklarimiz | Fahri Eren Ticaret',
-        'product-detail': 'Urun Detayi | Fahri Eren Ticaret',
-    };
-
-    const pageDescriptions: Record<string, string> = {
-        home: 'Emlak, arac, insaat malzemeleri ve tarim urunleri ticareti. Ulukisla, Nigde.',
-        products: 'Fahri Eren Ticaret - Emlak, arac, insaat malzemeleri ve tarim urunleri.',
-        about: 'Fahri Eren hakkinda - 1998den bu yana ticaret sektorunde. Guvenilir ticaret platformu.',
-        contact: 'Fahri Eren ile iletisime gecin. Telefon, e-posta veya WhatsApp uzerinden bize ulasin.',
-        partners: 'Fahri Eren is ortaklari ve guvenilir tedarikci agi.',
-    };
-
-    useEffect(() => {
-        document.title = pageTitles[pageType] || pageTitles.home;
-
-        const metaDescription = document.querySelector('meta[name="description"]');
-        if (metaDescription) {
-            metaDescription.setAttribute('content', pageDescriptions[pageType] || pageDescriptions.home);
-        }
-    }, [pageType]);
-
+export const useSEO = () => {
     const updateProductSEO = useCallback((product?: Product) => {
         if (product) {
             document.title = `${product.title.tr} - Fahri Eren Ticaret`;
@@ -52,6 +23,11 @@ export const useSEO = (pageType: string) => {
     };
 };
 
+// Global products cache to prevent duplicate loading
+let productsCache: Product[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Products hook with Firebase integration
 export const useProducts = () => {
     const [products, setProducts] = useState<Product[]>([]);
@@ -66,20 +42,46 @@ export const useProducts = () => {
         searchQuery: ''
     });
 
-    // Load products from Firebase
+    // Load products from Firebase with caching
     const loadProducts = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
 
-            // Get products from Firebase only
-            const {productService} = await import('../services/firebaseService');
-            const firebaseProducts = await productService.getProducts();
+            // Check cache first
+            const now = Date.now();
+            if (productsCache && (now - cacheTimestamp) < CACHE_DURATION) {
+                setAllProducts(productsCache);
+                setProducts(productsCache);
+                setLoading(false);
+                return;
+            }
+
+            // Load products from Firebase only
+            let firebaseProducts: Product[] = [];
+
+            try {
+                const {productService} = await import('../services/firebaseService');
+                firebaseProducts = await productService.getProducts();
+            } catch (firebaseError) {
+                console.error('Firebase error:', firebaseError);
+                // No fallback - Firebase is the only source
+                setError('Ürünler yüklenirken hata oluştu');
+            }
+
+            // Update cache
+            productsCache = firebaseProducts;
+            cacheTimestamp = now;
 
             setAllProducts(firebaseProducts);
             setProducts(firebaseProducts);
         } catch (err: any) {
             setError(err.message || 'Beklenmeyen bir hata oluştu');
+            console.warn('Products loading failed, using empty array:', err);
+
+            // Use empty array as fallback
+            setAllProducts([]);
+            setProducts([]);
         } finally {
             setLoading(false);
         }
@@ -151,23 +153,74 @@ export const useProducts = () => {
         setFilters(defaultFilters);
     }, []);
 
+    // Track ongoing favorite updates to prevent duplicates
+    const favoriteUpdateInProgress = React.useRef<Set<string>>(new Set());
+
     // Favorites management
-    const toggleFavorite = useCallback((productId: string) => {
-        setFavorites(prev => {
-            const newFavorites = prev.includes(productId)
-                ? prev.filter(id => id !== productId)
-                : [...prev, productId];
+    const toggleFavorite = useCallback(async (productId: string) => {
+        // Prevent duplicate calls
+        if (favoriteUpdateInProgress.current.has(productId)) {
+            return;
+        }
 
-            localStorage.setItem('favorites', JSON.stringify(newFavorites));
+        favoriteUpdateInProgress.current.add(productId);
 
-            // Track favorite action
-            apiManager.trackAnalytics('favorite_toggle', {
-                productId,
-                action: newFavorites.includes(productId) ? 'add' : 'remove'
+        try {
+            setFavorites(prev => {
+                const newFavorites = prev.includes(productId)
+                    ? prev.filter(id => id !== productId)
+                    : [...prev, productId];
+
+                localStorage.setItem('favorites', JSON.stringify(newFavorites));
+
+                const isAdding = newFavorites.includes(productId);
+
+                // Track favorite action
+                apiManager.trackAnalytics('favorite_toggle', {
+                    productId,
+                    action: isAdding ? 'add' : 'remove'
+                });
+
+                // Update Firebase favoriteCount
+                (async () => {
+                    try {
+                        const {doc, updateDoc, increment} = await import('firebase/firestore');
+                        const {db} = await import('../config/firebase');
+
+                        const productRef = doc(db, 'products', productId);
+
+                        // Doğrudan increment kullan - Firebase otomatik olarak field yoksa oluşturur
+                        await updateDoc(productRef, {
+                            favoriteCount: increment(isAdding ? 1 : -1)
+                        });
+
+                        if (import.meta.env.DEV) {
+                            console.log(`✅ Favori ${isAdding ? 'eklendi' : 'çıkarıldı'}: ${productId}`);
+                        }
+
+                        // Cache'i temizle
+                        productsCache = null;
+                        cacheTimestamp = 0;
+                    } catch (error) {
+                        console.error('❌ Firebase favoriteCount güncelleme hatası:', error);
+                        if (import.meta.env.DEV) {
+                            console.error('Product ID:', productId);
+                            console.error('İşlem:', isAdding ? 'Ekleme' : 'Çıkarma');
+                        }
+                    } finally {
+                        // Remove from in-progress set after a short delay
+                        setTimeout(() => {
+                            favoriteUpdateInProgress.current.delete(productId);
+                        }, 500);
+                    }
+                })();
+
+                return newFavorites;
             });
-
-            return newFavorites;
-        });
+        } catch (error) {
+            favoriteUpdateInProgress.current.delete(productId);
+            throw error;
+        }
     }, []);
 
     // Load favorites from localStorage

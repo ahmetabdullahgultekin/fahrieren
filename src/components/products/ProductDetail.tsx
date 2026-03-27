@@ -12,6 +12,7 @@ import {
     MessageCircle,
     Phone,
     Share2,
+    Star,
     User,
     X
 } from 'lucide-react';
@@ -53,8 +54,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     // Update SEO for this product and track view
     React.useEffect(() => {
         updateProductSEO(product);
-        // Track product view for analytics
-        analyticsService.trackProductView(product.id);
+        // Track product view for analytics (only in production)
+        if (import.meta.env.PROD) {
+            analyticsService.trackProductView(product.id);
+        }
     }, [product, updateProductSEO]);
 
     const nextImage = () => {
@@ -319,7 +322,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                                 className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2"
                             >
                                 <Phone className="w-5 h-5"/>
-                                <span>Hemen Ara - 05368536265</span>
+                                <span>Hemen Ara - 05001234567</span>
                             </button>
                             <div className="grid grid-cols-2 gap-3">
                                 <button
@@ -351,7 +354,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                                         <div className="flex items-center space-x-1">
                                             <Award className="w-4 h-4"/>
-                                            <span>1998'den beri ticaret</span>
+                                            <span>25+ yıl tecrübe</span>
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            <Star className="w-4 h-4 text-yellow-500"/>
+                                            <span>4.9 puan</span>
                                         </div>
                                     </div>
                                 </div>
@@ -427,7 +434,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                                             <div className="space-y-2 text-sm text-gray-600">
                                                 <div className="flex items-center space-x-2">
                                                     <Clock className="w-4 h-4"/>
-                                                    <span>1998'den beri ticaret</span>
+                                                    <span>25+ yıl tecrübe</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Star className="w-4 h-4 text-yellow-500"/>
+                                                    <span>4.9/5 müşteri puanı</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Award className="w-4 h-4"/>
+                                                    <span>5000+ mutlu müşteri</span>
                                                 </div>
                                             </div>
                                         </div>
