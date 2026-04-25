@@ -1,15 +1,27 @@
 import React from 'react';
 import {MapPin} from 'lucide-react';
 
-interface GoogleMapProps {
+interface LocationMapProps {
     lat: number;
     lng: number;
     title?: string;
     zoom?: number;
 }
 
-const GoogleMap: React.FC<GoogleMapProps> = ({lat, lng, title = 'Konum', zoom = 15}) => {
-    const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${lat},${lng}&zoom=${zoom}`;
+const LocationMap: React.FC<LocationMapProps> = ({lat, lng, title = 'Konum', zoom = 15}) => {
+    // OpenStreetMap embed needs a bbox (south,west,north,east). For the
+    // requested zoom (default 15 ≈ city block) ±0.005 lat / ±0.01 lng gives a
+    // visually similar viewport to the previous Google Maps embed.
+    const dLat = 0.005;
+    const dLng = 0.01;
+    const south = lat - dLat;
+    const north = lat + dLat;
+    const west = lng - dLng;
+    const east = lng + dLng;
+    const bbox = `${west},${south},${east},${north}`;
+    const marker = `${lat},${lng}`;
+    const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}`;
+    void zoom;
 
     return (
         <div className="relative w-full h-96 rounded-xl overflow-hidden shadow-lg border border-gray-200">
@@ -34,4 +46,4 @@ const GoogleMap: React.FC<GoogleMapProps> = ({lat, lng, title = 'Konum', zoom = 
     );
 };
 
-export default GoogleMap;
+export default LocationMap;

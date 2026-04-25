@@ -3,7 +3,7 @@ import {MapPin, MessageCircle, Phone, Send} from 'lucide-react';
 import {useFahriErenConfig} from '../hooks/useFahriErenConfig';
 import {useTranslation} from '../hooks';
 import SEO from '../components/common/SEO';
-import GoogleMap from '../components/common/GoogleMap';
+import LocationMap from '../components/common/LocationMap';
 import toast from 'react-hot-toast';
 
 const ContactPage: React.FC = () => {
@@ -300,10 +300,10 @@ ${formData.message}
                             </form>
                         </div>
 
-                        {/* Google Map */}
+                        {/* Location Map (OpenStreetMap — no API key required) */}
                         {config.config.contact.location.coordinates && (
                             <div className="mb-8">
-                                <GoogleMap
+                                <LocationMap
                                     lat={config.config.contact.location.coordinates.lat}
                                     lng={config.config.contact.location.coordinates.lng}
                                     title={config.contact.fullAddress()}
