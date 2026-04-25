@@ -1,0 +1,1 @@
+import"./vendor-BNtEKHOV.js";import"./firebase-C6TNyOse.js";import{l as r,u as o}from"./index-CHRMK4Yi.js";export{r as auth,o as db};
