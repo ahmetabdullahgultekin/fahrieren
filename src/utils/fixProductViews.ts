@@ -16,7 +16,7 @@ export const fixProductViews = async () => {
             const data = productDoc.data();
 
             // Eksik alanları kontrol et ve ekle
-            const updates: any = {};
+            const updates: Record<string, number> = {};
 
             if (typeof data.views !== 'number') {
                 updates.views = 0;
@@ -47,6 +47,6 @@ export const fixProductViews = async () => {
 
 // Development modunda global olarak ekle
 if (import.meta.env.DEV) {
-    (window as any).fixProductViews = fixProductViews;
+    window.fixProductViews = fixProductViews;
     console.log('🔧 Ürün sayaçlarını düzeltmek için: fixProductViews()');
 }

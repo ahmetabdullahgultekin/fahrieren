@@ -29,6 +29,6 @@ export const resetFavorites = async () => {
 
 // Development modunda global olarak ekle
 if (import.meta.env.DEV) {
-    (window as any).resetFavorites = resetFavorites;
+    window.resetFavorites = resetFavorites;
     console.log('🔧 Favori sayaçlarını sıfırlamak için: resetFavorites()');
 }

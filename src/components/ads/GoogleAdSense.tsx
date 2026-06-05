@@ -10,7 +10,8 @@ interface GoogleAdSenseProps {
 
 declare global {
     interface Window {
-        adsbygoogle: any[];
+        // The AdSense loader reads/pushes config objects onto this array.
+        adsbygoogle: Record<string, unknown>[];
     }
 }
 

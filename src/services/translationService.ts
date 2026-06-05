@@ -733,13 +733,19 @@ export class TranslationService {
 
     public translate(key: string): string {
         const keys = key.split('.');
-        let value: any = this.translations[this.currentLanguage];
+        // Walk the nested dictionary as `unknown`, narrowing at each step.
+        let value: unknown = this.translations[this.currentLanguage];
 
         for (const k of keys) {
-            value = value?.[k];
+            if (value && typeof value === 'object') {
+                value = (value as Record<string, unknown>)[k];
+            } else {
+                value = undefined;
+                break;
+            }
         }
 
-        return value || key;
+        return typeof value === 'string' ? value : key;
     }
 }
 
