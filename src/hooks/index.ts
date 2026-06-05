@@ -75,8 +75,8 @@ export const useProducts = () => {
 
             setAllProducts(firebaseProducts);
             setProducts(firebaseProducts);
-        } catch (err: any) {
-            setError(err.message || 'Beklenmeyen bir hata oluştu');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Beklenmeyen bir hata oluştu');
             console.warn('Products loading failed, using empty array:', err);
 
             // Use empty array as fallback

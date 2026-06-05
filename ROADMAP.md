@@ -136,6 +136,29 @@ The build-and-deploy substrate everything else depends on.
   mounts, the AdSense loader is present, and TR/EN toggles — catching exactly the stale-bundle
   class of regression this cycle uncovered.
 
+### From the 2026-06-05 code-quality review (`docs/CODE_QUALITY_2026-06-05.md`)
+
+- [ ] **Collapse the two data layers into Firebase-only (biggest refactor).** Delete the dead
+  JSONBin stack (`services/apiManager.ts`, `config/apiConfig.ts`, and the API methods of
+  `services/dataService.ts` — keep the static `getPartners`/`getPersonalInfo`), and re-point
+  `seoService` analytics/contact-info reads off `apiManager`. The contact/newsletter forms
+  currently POST to a placeholder JSONBin API and 401, while the already-secured Firestore
+  `contacts`/`newsletter` collections have no writer (review P1-2 / P2-3; overlaps Phase 4).
+- [ ] **Fix or remove the broken admin-bootstrap path.** `AuthService.createAdminUser` does an
+  auto-ID `addDoc` that the rules reject (`admins write:false`) and that `isAdmin` (UID-keyed)
+  would never match; the `AuthModal` "create admin" button cannot work. Remove it (admins are
+  seeded via Console/Admin SDK) or make it `setDoc(doc(db,'admins',uid))` behind a dev guard
+  (review P1-1).
+- [ ] **Fix analytics nesting.** `analyticsService` writes dotted keys (`pageViews.${page}`) via
+  `setDoc(merge:true)`, which creates literal-dotted top-level fields instead of nested objects,
+  so `getAnalyticsData` reads empty breakdowns. Use `updateDoc` dotted paths or build the nested
+  object client-side (review P2-2).
+- [ ] **De-duplicate the admin product editors.** `components/admin/{Add,Edit}ProductPage.tsx`
+  vs `pages/admin/Admin{Add,Edit}ProductPage.tsx` — confirm the routed pair and delete the stale
+  one (review P2-5; the unused-handler lint in `components/admin/EditProductPage.tsx` flags it).
+- [ ] **Localize the legal pages** — `PrivacyPolicyPage`/`TermsOfServicePage` hardcode TR/EN
+  copy and leave `useTranslation` unused; move copy into the dicts or drop the import (P3-1).
+
 ## Phase 6 — SEO, performance & PWA
 
 - [ ] **Pre-render / SSG** key public routes (vite-ssg or a prerender step) so crawlers and the

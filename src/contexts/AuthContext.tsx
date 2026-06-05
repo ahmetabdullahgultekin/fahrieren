@@ -46,8 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             const adminStatus = await authService.isAdmin(user);
             setUser(user);
             setIsAdmin(adminStatus);
-        } catch (error: any) {
-            setError(error.message || 'Giriş yapılırken hata oluştu');
+        } catch (error: unknown) {
+            setError(error instanceof Error ? error.message : 'Giriş yapılırken hata oluştu');
             throw error;
         } finally {
             setLoading(false);
@@ -61,8 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             setUser(null);
             setIsAdmin(false);
             setError(null);
-        } catch (error: any) {
-            setError(error.message || 'Çıkış yapılırken hata oluştu');
+        } catch (error: unknown) {
+            setError(error instanceof Error ? error.message : 'Çıkış yapılırken hata oluştu');
             throw error;
         } finally {
             setLoading(false);
@@ -76,8 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({children}
             await authService.createAdminUser(email, password);
             // Sign in the newly created admin user
             await signIn(email, password);
-        } catch (error: any) {
-            setError(error.message || 'Admin kullanıcı oluşturulurken hata oluştu');
+        } catch (error: unknown) {
+            setError(error instanceof Error ? error.message : 'Admin kullanıcı oluşturulurken hata oluştu');
             throw error;
         } finally {
             setLoading(false);

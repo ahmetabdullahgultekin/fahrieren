@@ -39,7 +39,7 @@ Vitest + Testing Library. `.npmrc` sets `legacy-peer-deps=true`; `package.json` 
 npm run dev        # dev server
 npm run build      # -> dist/
 npm test           # vitest run (12 tests today)
-npm run lint       # ESLint (~51 no-explicit-any baseline; NOT yet gated)
+npm run lint       # ESLint (42 errors after 2026-06-05 cleanup: ~13 no-explicit-any + ~22 no-unused-vars + misc; NOT yet gated)
 ./deploy.sh        # build + rsync dist/ -> Hostinger (run from a host that can SSH to Hostinger)
 ```
 
