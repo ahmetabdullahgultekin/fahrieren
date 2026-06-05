@@ -1,15 +1,34 @@
 # TODO — fahrieren.com (Fahri Eren ticaret platformu)
 
-> Grounded in code at HEAD `55ac1aa` (branch `master`), build verified (`npm run build` OK, 6.74s),
-> `npm run lint` = 88 errors (non-gating), 0 tests, 7 open Dependabot PRs.
-> Source code MUST NOT be changed by planning — these are work items, not done.
-
-Priority key: **P0** = security / correctness / blocks revenue. **P1** = important, near-term.
-**P2** = quality / hardening. **P3** = nice-to-have / future.
+> Updated 2026-06-05 on branch `dev/2026-06-05` (PR #24 landed to `master`; this branch follows).
+> Live state: PR #24 (Firestore lockdown + AdSense loader + stale-`/assets/` build-input fix + GA id
+> + sitemap + CI gate) is **merged to `master` and DEPLOYED + browser-verified live** on
+> https://fahrieren.com (fresh build serving, AdSense loader present, TR/EN working). Build green,
+> 12 vitest tests passing, `npm run lint` down 88 → **51** errors (non-gating), `deploy.sh` fixed to
+> build + rsync `dist/`, service worker now self-heals across deploys.
+>
+> Priority key: **P0** = security / correctness / blocks revenue. **P1** = important, near-term.
+> **P2** = quality / hardening. **P3** = nice-to-have / future. See ROADMAP.md for the long plan.
 
 ---
 
 ## P0 — Security & revenue blockers
+
+- [x] **Fix `deploy.sh` to ship the built app, not the repo source** — `deploy.sh`
+  - _Done (2026-06-05): the manual `deploy.sh` was rsyncing the **repo root** to Hostinger
+    `public_html`, which would have shipped the source `index.html` (referencing `/src/main.tsx`,
+    unrunnable in a browser) with NO `/assets/` dir = a blank live site. Now it `npm ci && npm run
+    build` and rsyncs **`dist/`** (mirroring `.github/workflows/deploy.yml`), with guards that abort
+    if `dist/` is missing or still references `/src/main.tsx`. Verified by deploying + browser-checking
+    the live site._
+
+- [x] **Self-healing service worker so deploys don't strand returning visitors** — `public/sw.js`, `src/main.tsx`
+  - _Done (2026-06-05): the old SW cached hashed `/assets/*` chunks; on a new deploy the old hashes 404
+    → `.htaccess` rewrote them to `index.html` (200 text/html) → the SW cached that as a module →
+    returning visitors hit "Expected a JavaScript module but server responded with text/html" boot
+    failures (observed live during this deploy). New SW bumps `CACHE_NAME`, `skipWaiting`+`clients.claim`,
+    only caches genuine js/css/wasm 200s, network-first for HTML; `main.tsx` forces `update()` + reloads
+    once on controllerchange so poisoned caches auto-recover._
 
 - [x] **Lock down Firestore security rules** — `firestore.rules`  _(done on `exec/p0-2026-06-05`: all writes admin-gated via `isAdmin()`; `admins` read-only/`write:false`; analytics/sessions create+update-public but admin-only read/delete; contacts/newsletter append-only; default-deny added. Added `firebase.json`+`.firebaserc` so deploy works. ⚠️ Operator must run `firebase deploy --only firestore:rules`.)_
   - Why: EVERY collection is `allow read, write: if true` (lines 5-40), including `admins`, `products`,
@@ -39,10 +58,13 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
   - Done when: real Ad-unit slot IDs from the `ca-pub-2016267232144093` AdSense account replace the
     dummies, and at least the home/products units render real ads.
 
-- [ ] **Triage the 7 open Dependabot PRs** — see dedicated section below.
-  - Why: all are `BLOCKED` (branch protection wants checks that never run because the only workflow is
-    deploy-on-push, not a PR check). Two include a fixed security advisory (protobufjs).
-  - Done when: each PR is merged, closed-with-reason, or has a tracked follow-up; `gh pr list` count drops.
+- [x] **Triage the 7 open Dependabot PRs** — see dedicated section below.
+  - _Done (2026-06-05): the three SAFE bumps were applied + build-verified directly on
+    `dev/2026-06-05` (protobufjs 7.6.2 + @protobufjs/utf8 1.1.1 security, @types/node 25.6.0) rather
+    than merging the old-`master`-based Dependabot branches (they predate the #24 `/assets/` removal).
+    `npm ci && npm run build && npm test` all green. HOLD remains, with rationale, on #21 (15-lib
+    group — test+click first), #15/#12 (eslint majors — do together on a branch), #13 (Tailwind v4 —
+    build breaks, needs a migration branch). Operator may close #23/#18/#14 as superseded._
 
 ## P1 — Important / near-term
 
@@ -77,27 +99,33 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
 
 ## P2 — Quality / hardening
 
-- [ ] **Add a test framework + smoke tests** — new `vitest` + `@testing-library/react`
-  - Why: zero tests exist (no `*.test.*`, no vitest/jest in `package.json`). Dependency bumps
-    (esp. Tailwind v4, eslint 10) can't be validated automatically.
-  - Done when: vitest is configured, a render-smoke test for `HomePage`/`ProductCard` and a unit test for
-    `translationService.t()` pass in CI.
+- [x] **Add a test framework + smoke tests** — `vitest` + `@testing-library/react`
+  - _Done (2026-06-05): vitest 3 + RTL + jsdom configured (`vitest.config.ts`, `src/test/setup.ts`).
+    Tests: `translationService.test.ts` (t() dot-path resolution + TR/EN switch + key fallback),
+    `adsConfig.test.ts` (isRealSlot accepts numeric / rejects PLACEHOLDER_*+empty), and a
+    `ProductCard.test.tsx` render smoke test under LanguageProvider. `npm test` = **12 passing**.
+    CI (`ci.yml`) now runs `npm test` after build, so dependency bumps are validated automatically._
 
-- [ ] **Remove dead / duplicate code** — `src/hooks/useAuth.ts.old`,
+- [x] **Remove dead / duplicate code** — `src/hooks/useAuth.ts.old`,
     `src/components/admin/AdminPanel.tsx`, `src/components/admin/ProductManager.tsx`,
     and the duplicated `components/about|contact/*Page.tsx` vs `pages/*Page.tsx`
-  - Why: `useAuth.ts.old`, `AdminPanel`, `ProductManager` are referenced by 0 files (verified by grep);
-    `components/about/AboutPage` & `components/contact/ContactPage` duplicate the routed `pages/` versions.
-    Dead code inflates bundle/lint noise and confuses maintenance.
-  - Done when: confirmed-unused files deleted, build still green, lint error count drops.
-  - _Partial on `exec/p0-2026-06-05`: confirmed `src/components/contact/ContactPage.tsx` is imported by 0 files (router uses `pages/ContactPage.tsx`); it survives only because it's tree-shaken out — it imports `Facebook/Instagram/Linkedin` from lucide-react which were removed in 1.11.0. Also fixed a LATENT BUILD BREAK this exposed: the routed `Footer.tsx` imported those same removed brand icons, so a from-source `npm ci && npm run build` failed with MISSING_EXPORT. Replaced Footer's brand icons with inline brand SVGs. Deleting the dead files themselves deferred._
+  - _Done (2026-06-05): all five files verified unreferenced by full-tree grep, then deleted
+    (`useAuth.ts.old`, `admin/AdminPanel.tsx`, `admin/ProductManager.tsx`, `about/AboutPage.tsx`,
+    `contact/ContactPage.tsx` — AppRouter imports the `pages/` versions). Build + 12 tests stayed
+    green; eslint errors dropped 88 → 74 from this removal. Also removed the stale duplicate root
+    `sw.js` and the empty `public/index.html`. (The Footer brand-icon build break this class of dead
+    code had exposed was already fixed in #24.)_
 
-- [ ] **Fix the 88 `no-explicit-any` lint errors** — `src/services/*.ts`, `src/utils/*.ts`,
-    `src/components/integrations/*`
-  - Why: bulk of the 88 errors are `@typescript-eslint/no-explicit-any` in `apiManager.ts`, `seoService.ts`,
-    `translationService.ts`, `createAdminUser.ts`, `fixFavorites.ts`, `fixProductViews.ts`. Typing them
-    catches real bugs and lets the lint gate (P1) be enforced.
-  - Done when: `npm run lint` passes (0 errors) or the remaining are explicitly justified with disables.
+- [~] **Fix the `no-explicit-any` lint errors incrementally** — `src/services/*.ts`, `src/utils/*.ts`,
+    `src/components/integrations/*`, pages, `AuthContext`
+  - _In progress (2026-06-05): eslint **88 → 51** errors on `dev/2026-06-05`. Typed the safe infra
+    surfaces with `unknown` / `Record<string,unknown>`: `apiManager.ts` (body, cache, catch, payloads),
+    `analyticsService.ts` (errorCode() narrowing + payloads + increment bridge), `translationService.ts`
+    (dict walk), `seoService.ts` (product/JSON-LD params), `GoogleAdSense`/`GoogleAnalytics` window
+    globals, and the dev-only window debug helpers (new `src/types/devGlobals.d.ts`, removed 4
+    `(window as any)` casts). No behavior change; build + tests green._
+  - Done when: `npm run lint` reaches 0 errors (remaining ~51 are in page components + `AuthContext`),
+    THEN `npm run lint` + `tsc -b` are added to the CI gate (see ROADMAP Phase 5).
 
 - [ ] **Decide product-image upload story** — `src/services/firebaseService.ts` (`StorageService`)
   - Why: `uploadProductImage` is a stub that returns a placeholder Hostinger URL and logs
@@ -130,18 +158,21 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
 
 ## Dependency-triage section — the 7 open Dependabot PRs
 
-Context: ALL show `mergeStateStatus: BLOCKED` + `mergeable: MERGEABLE`. BLOCKED is because branch
-protection expects status checks but **no workflow runs on `pull_request`** (only deploy-on-push). So
-each PR must be validated **locally** (`git fetch`, checkout branch, `npm ci && npm run build`) and then
-merged (admin override or after adding the P1 PR check workflow). `.npmrc` has `legacy-peer-deps=true`.
+**Status (2026-06-05):** the three safe bumps (**#23, #18, #14**) are RESOLVED — applied + build/test-
+verified directly on `dev/2026-06-05` (rather than merging the old-`master`-based Dependabot branches,
+which predate the #24 `/assets/` removal and would re-introduce conflicts). protobufjs 7.6.2 +
+@protobufjs/utf8 1.1.1 enforce the security fix; @types/node 25.6.0 is types-only. Operator may close
+#23/#18/#14 as superseded. **#21, #15, #12, #13 remain HELD** (see below). The CI gate (`ci.yml`,
+build + test on PRs) now gives any future Dependabot PR a real status check — operator must add
+`CI / build` to branch protection to make BLOCKED PRs auto-mergeable on green.
 
-| PR | Bump | Type | Recommendation |
+| PR | Bump | Type | Status / Recommendation |
 |----|------|------|----------------|
-| **#23** | `protobufjs` 7.5.5 → 7.6.2 (transitive, via firebase) | patch / security | **Merge now** |
-| **#18** | `@protobufjs/utf8` 1.1.0 → 1.1.1 (transitive) | patch / security | **Merge now** (likely subsumed by #23 — close as superseded if so) |
+| **#23** | `protobufjs` 7.5.5 → 7.6.2 (transitive, via firebase) | patch / security | ✅ **DONE** — pinned 7.6.2 on dev branch, build+test green |
+| **#18** | `@protobufjs/utf8` 1.1.0 → 1.1.1 (transitive) | patch / security | ✅ **DONE** — pinned 1.1.1 on dev branch (subsumed by #23 path) |
 | **#21** | grouped minor-and-patch, **15 updates** (firebase 12.12→12.13, react/react-dom 19.2.5→19.2.6, react-router 7.14→7.15, react-hook-form 7.73→7.76, @hookform/resolvers 5.2→5.4, @tanstack/react-query 5.100.1→.14, lucide-react 1.11→1.16, @vitejs/plugin-react 6.0.1→6.0.2, typescript-eslint 8.59.0→.4, @types/react, etc.) | minor/patch | **Test-then-merge** — low risk but it's 15 libs incl. react-router & firebase; do one `npm ci && npm run build` + a manual click-through of home/products/admin before merging |
-| **#14** | `@types/node` 24.5.2 → 25.6.0 | dev, major (types only) | **Merge now** — types-only devDep, no runtime impact; build proves it |
-| **#15** | `eslint-plugin-react-hooks` 5.2.0 → 7.1.1 | dev, major | **Test-then-merge** — major jump may add new rule errors; run `npm run lint` after, accept only if it doesn't regress the gate |
+| **#14** | `@types/node` 24.5.2 → 25.6.0 | dev, major (types only) | ✅ **DONE** — bumped 25.6.0 on dev branch, build+test green |
+| **#15** | `eslint-plugin-react-hooks` 5.2.0 → 7.1.1 | dev, major | **HELD** — major jump; prior analysis found lint crashes (exit 2) on the current flat-config. Do with #12 on an eslint-upgrade branch |
 | **#12** | `eslint` 9.36.0 → 10.2.1 | dev, MAJOR | **Hold / test in a branch** — eslint 10 may need flat-config/plugin-peer updates (`@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks` all pinned to 9-era). Bundle with #15 and `@eslint/js` bump; verify `npm run lint` runs before merge. Don't merge blind. |
 | **#13** | `tailwindcss` 3.4.17 → **4.2.4** | dev, MAJOR (breaking) | **HOLD — needs a dedicated migration branch** — v4 is a rewrite: `postcss.config.js` must switch `tailwindcss` → `@tailwindcss/postcss`; `src/index.css` `@tailwind base/components/utilities` → `@import "tailwindcss"`; `tailwind.config.js` custom `primary` colors/`extend` move to CSS-first `@theme`; `@apply bg-primary-600` (3 uses in index.css) breaks unless tokens re-declared. Do NOT merge into the deps stream. Migrate deliberately, visually diff every page, then ship. |
 
