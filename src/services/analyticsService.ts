@@ -13,6 +13,16 @@ import {
 } from 'firebase/firestore';
 import {db} from '../config/firebase';
 
+// Firestore errors carry a string `code` (e.g. 'permission-denied'). Narrow an
+// unknown caught value to that code without resorting to `any`.
+function errorCode(error: unknown): string | undefined {
+    if (error && typeof error === 'object' && 'code' in error) {
+        const code = (error as { code: unknown }).code;
+        return typeof code === 'string' ? code : undefined;
+    }
+    return undefined;
+}
+
 export interface AnalyticsData {
     totalViews: number;
     uniqueVisitors: number;
@@ -56,9 +66,10 @@ class AnalyticsService {
 
             // Track session
             await this.trackSession(page);
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Silently fail for permissions issues in development
-            if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+            const code = errorCode(error);
+            if (code === 'permission-denied' || code === 'unauthenticated') {
                 // Store locally as fallback
                 this.storeLocalAnalytics(page);
             } else {
@@ -86,7 +97,9 @@ class AnalyticsService {
 
             // Update product's view count in products collection
             await productService.updateProduct(productId, {
-                views: increment(1) as any
+                // increment() returns a Firestore FieldValue; the Product type
+                // declares views as number, so bridge through unknown.
+                views: increment(1) as unknown as number
             });
 
             // Track detailed product analytics
@@ -134,11 +147,12 @@ class AnalyticsService {
             }
 
             return data;
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to get analytics data:', error);
 
             // If Firebase permission error, fall back to local data
-            if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+            const code = errorCode(error);
+            if (code === 'permission-denied' || code === 'unauthenticated') {
                 const localData = this.getLocalAnalytics();
                 return {
                     totalViews: localData.totalViews || 0,
@@ -164,7 +178,7 @@ class AnalyticsService {
     }
 
     // Track custom events
-    async trackEvent(eventName: string, eventData: any = {}): Promise<void> {
+    async trackEvent(eventName: string, eventData: Record<string, unknown> = {}): Promise<void> {
         try {
             await addDoc(collection(db, 'events'), {
                 eventName,

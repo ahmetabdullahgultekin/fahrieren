@@ -33,14 +33,17 @@ export const createAdminUser = async (email: string, password: string) => {
         console.log('\n🚀 Şimdi /admin sayfasından giriş yapabilirsiniz!');
 
         return userCredential.user;
-    } catch (error: any) {
-        console.error('❌ Admin kullanıcısı oluşturulurken hata:', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        const code = (error && typeof error === 'object' && 'code' in error)
+            ? String((error as { code: unknown }).code) : '';
+        console.error('❌ Admin kullanıcısı oluşturulurken hata:', message);
 
-        if (error.code === 'auth/email-already-in-use') {
+        if (code === 'auth/email-already-in-use') {
             console.log('ℹ️  Bu email adresi zaten kullanımda. Direkt giriş yapmayı deneyin.');
-        } else if (error.code === 'auth/invalid-email') {
+        } else if (code === 'auth/invalid-email') {
             console.log('ℹ️  Geçersiz email adresi formatı.');
-        } else if (error.code === 'auth/weak-password') {
+        } else if (code === 'auth/weak-password') {
             console.log('ℹ️  Şifre çok zayıf. En az 6 karakter kullanın.');
         }
 
@@ -65,7 +68,7 @@ export const quickAdminSetup = () => {
 
 // Global fonksiyon olarak ekle (sadece development - sessizce)
 if (import.meta.env.DEV) {
-    (window as any).createAdminUser = createAdminUser;
-    (window as any).quickAdminSetup = quickAdminSetup;
+    window.createAdminUser = createAdminUser;
+    window.quickAdminSetup = quickAdminSetup;
     // Console log'lar kaldırıldı - ihtiyaç olursa doğrudan fonksiyonları çağırın
 }
