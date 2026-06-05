@@ -10,14 +10,14 @@ interface ApiResponse<T> {
 interface RequestOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
     headers?: Record<string, string>;
-    body?: any;
+    body?: unknown;
     timeout?: number;
     retries?: number;
 }
 
 class ApiManager {
     private config = getApiConfig();
-    private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+    private cache = new Map<string, { data: unknown; timestamp: number; ttl: number }>();
 
     constructor() {
         this.initializeErrorHandling();
@@ -82,7 +82,7 @@ class ApiManager {
             }
 
             return result;
-        } catch (error: any) {
+        } catch (error: unknown) {
             clearTimeout(timeoutId);
 
             if (retries > 0 && !controller.signal.aborted) {
@@ -92,8 +92,8 @@ class ApiManager {
 
             return {
                 success: false,
-                data: null as any,
-                error: error.message,
+                data: null as unknown,
+                error: error instanceof Error ? error.message : String(error),
                 timestamp: Date.now(),
             };
         }
@@ -111,14 +111,14 @@ class ApiManager {
         });
     }
 
-    async sendContactMessage(data: any) {
+    async sendContactMessage(data: Record<string, unknown>) {
         return this.makeRequest(this.config.ENDPOINTS.CONTACT, {
             method: 'POST',
             body: {...data, timestamp: Date.now()},
         });
     }
 
-    async trackAnalytics(event: string, data: any) {
+    async trackAnalytics(event: string, data: Record<string, unknown>) {
         if (!this.config.FEATURES.ANALYTICS_ENABLED) return;
 
         return this.makeRequest(this.config.ENDPOINTS.ANALYTICS, {
@@ -197,7 +197,7 @@ class ApiManager {
         return null;
     }
 
-    private setCache(key: string, data: any, ttl: number) {
+    private setCache(key: string, data: unknown, ttl: number) {
         this.cache.set(key, {
             data,
             timestamp: Date.now(),

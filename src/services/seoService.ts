@@ -119,8 +119,16 @@ class SEOService {
         }
     }
 
-    // Ürün detay sayfası için özel SEO
-    getProductSEO(product: any) {
+    // Ürün detay sayfası için özel SEO.
+    // Only the fields actually read here are required, so callers can pass a
+    // full Product (or a lighter object) without a cast.
+    getProductSEO(product: {
+        title: { tr: string };
+        description: { tr: string };
+        category: string;
+        keywords?: string;
+        images?: string[];
+    }) {
         const title = `${product.title.tr} | Fahri Eren`;
         const description = `${product.description.tr.substring(0, 160)}...`;
         const keywords = `${product.title.tr}, ${product.category}, fahri eren, ${product.keywords || ''}`;
@@ -136,7 +144,7 @@ class SEOService {
     }
 
     // Structured data (JSON-LD) ekleme
-    addStructuredData(type: string, data: any) {
+    addStructuredData(type: string, data: Record<string, unknown>) {
         const existingScript = document.querySelector(`script[data-type="${type}"]`);
         if (existingScript) {
             existingScript.remove();

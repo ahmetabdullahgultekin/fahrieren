@@ -17,8 +17,9 @@ const GA_MEASUREMENT_ID = isValidGaId(envGaId) ? envGaId : DEFAULT_GA_MEASUREMEN
 
 declare global {
     interface Window {
-        gtag?: (...args: any[]) => void;
-        dataLayer?: any[];
+        // gtag accepts a variadic, loosely-typed argument list (command, target, params).
+        gtag?: (...args: unknown[]) => void;
+        dataLayer?: unknown[];
     }
 }
 
