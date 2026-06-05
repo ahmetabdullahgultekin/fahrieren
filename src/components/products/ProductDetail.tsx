@@ -42,8 +42,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
                                                          onViewProduct,
                                                          onCall,
                                                          onWhatsApp,
-                                                         onEmail,
-                                                         onRefresh
+                                                         onEmail
                                                      }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [showImageModal, setShowImageModal] = useState(false);

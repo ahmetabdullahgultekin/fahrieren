@@ -60,8 +60,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
         setImageError(true);
     };
 
-    const placeholderImage = 'https://via.placeholder.com/400x300/e5e7eb/6b7280?text=Resim+Yüklenemedi';
-
     const currentImage = product.images[currentImageIndex] || '/images/product-placeholder.svg';
     const displayImage = imageError ? '/images/product-placeholder.svg' : currentImage;
 

@@ -276,7 +276,8 @@ class AnalyticsService {
                 categoryViews: {},
                 topProducts: []
             };
-        } catch (error) {
+        } catch (err: unknown) {
+            console.warn('Failed to read local analytics, returning defaults:', err);
             return {
                 totalViews: 0,
                 uniqueVisitors: 0,

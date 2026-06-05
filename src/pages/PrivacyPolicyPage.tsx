@@ -1,11 +1,9 @@
 import React from 'react';
 import {motion} from 'framer-motion';
 import {Shield} from 'lucide-react';
-import {useTranslation} from '../hooks';
 import SEO from '../components/common/SEO';
 
 const PrivacyPolicyPage: React.FC = () => {
-    const {t} = useTranslation();
 
     return (
         <>

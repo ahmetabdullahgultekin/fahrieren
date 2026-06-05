@@ -129,8 +129,9 @@ The build-and-deploy substrate everything else depends on.
 - [ ] **Grow the test suite** — render tests for every page, a `LanguageContext` switch test, an
   `AdBanner`/`GoogleAdSense` "renders nothing for placeholder slot" test, and service unit tests
   (apiManager cache TTL, seoService JSON-LD shape).
-- [ ] **Drive `no-explicit-any` to zero** (51 → 0) across pages/`AuthContext`, then **add `npm run
-  lint` and `tsc -b` to the CI gate** so PRs must be type-clean.
+- [x] **Drive `no-explicit-any` + `no-unused-vars` + `react-refresh` to zero** (42 errors → 0)
+  and **gate `npm run lint` in CI** — done 2026-06-05 (`chore/lint-zero-2026-06-05`). Add `tsc -b`
+  to CI as a follow-up for full type-gate.
 - [ ] **Coverage threshold** in CI (start at a realistic floor, ratchet up).
 - [ ] **E2E smoke** — a Playwright job that loads the deployed home/products, asserts the app
   mounts, the AdSense loader is present, and TR/EN toggles — catching exactly the stale-bundle
@@ -157,7 +158,7 @@ The build-and-deploy substrate everything else depends on.
   vs `pages/admin/Admin{Add,Edit}ProductPage.tsx` — confirm the routed pair and delete the stale
   one (review P2-5; the unused-handler lint in `components/admin/EditProductPage.tsx` flags it).
 - [ ] **Localize the legal pages** — `PrivacyPolicyPage`/`TermsOfServicePage` hardcode TR/EN
-  copy and leave `useTranslation` unused; move copy into the dicts or drop the import (P3-1).
+  copy; move copy into the dicts for bilingual support. (Unused import already removed in lint pass.)
 
 ## Phase 6 — SEO, performance & PWA
 

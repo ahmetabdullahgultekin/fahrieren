@@ -19,5 +19,18 @@ export default defineConfig([
             ecmaVersion: 2020,
             globals: globals.browser,
         },
+        rules: {
+            // Allow intentionally-unused parameters/variables when prefixed with '_'.
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                {
+                    vars: 'all',
+                    args: 'all',
+                    argsIgnorePattern: '^_',
+                    varsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                },
+            ],
+        },
     },
 ])

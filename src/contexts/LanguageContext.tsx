@@ -1,15 +1,8 @@
-import React, {createContext, ReactNode, useCallback, useContext, useEffect, useState} from 'react';
+import React, {ReactNode, useCallback, useEffect, useState} from 'react';
 import translationService from '../services/translationService';
 import apiManager from '../services/apiManager';
 import type {Language} from '../types';
-
-interface LanguageContextType {
-    language: Language;
-    changeLanguage: (newLanguage: Language) => void;
-    t: (key: string) => string;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+import {LanguageContext} from './LanguageContextDef';
 
 interface LanguageProviderProps {
     children: ReactNode;
@@ -25,8 +18,8 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({children}) =>
         // Track language change
         try {
             apiManager.trackAnalytics('language_change', {from: language, to: newLanguage});
-        } catch (error) {
-            console.warn('Analytics tracking failed:', error);
+        } catch (err) {
+            console.warn('Analytics tracking failed:', err);
         }
 
         // Update URL parameter
@@ -34,8 +27,8 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({children}) =>
             const url = new URL(window.location.href);
             url.searchParams.set('lang', newLanguage);
             window.history.replaceState({}, '', url.toString());
-        } catch (error) {
-            console.warn('URL update failed:', error);
+        } catch (err) {
+            console.warn('URL update failed:', err);
         }
     }, [language]);
 
@@ -60,8 +53,8 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({children}) =>
             if (initialLang !== language && (initialLang === 'tr' || initialLang === 'en')) {
                 setLanguage(initialLang);
             }
-        } catch (error) {
-            console.warn('Language initialization failed:', error);
+        } catch (err) {
+            console.warn('Language initialization failed:', err);
         }
     }, [language]);
 
@@ -76,17 +69,4 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({children}) =>
             {children}
         </LanguageContext.Provider>
     );
-};
-
-export const useLanguage = (): LanguageContextType => {
-    const context = useContext(LanguageContext);
-    if (context === undefined) {
-        throw new Error('useLanguage must be used within a LanguageProvider');
-    }
-    return context;
-};
-
-// Backward compatibility - keep the old hook working
-export const useTranslation = () => {
-    return useLanguage();
 };

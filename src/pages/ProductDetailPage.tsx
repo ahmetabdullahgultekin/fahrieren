@@ -40,7 +40,7 @@ const ProductDetailPage: React.FC = () => {
         navigate(RouteKey.PRODUCTS);
     };
 
-    const handleViewProduct = (viewProduct: any) => {
+    const handleViewProduct = (viewProduct: {id: string}) => {
         navigate(`${RouteKey.PRODUCTS}/${viewProduct.id}`);
         window.scrollTo(0, 0);
     };
