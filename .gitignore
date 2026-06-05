@@ -10,6 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Build output — must never be committed. A stale committed /assets/ bundle was
+# being used as the Vite build INPUT, so src/ changes never reached production.
+/assets/
 *.local
 .env
 

@@ -1,0 +1,36 @@
+name: CI
+
+# Runs on pull requests so branch protection has a real status check to gate on.
+# This is intentionally build-only (no deploy): deploy.yml handles push-to-prod.
+# Adding this check is what unblocks the BLOCKED Dependabot PRs.
+on:
+  pull_request:
+    branches: [main, master]
+  # Allow manual runs and runs on the branch itself for confidence.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Install & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # .npmrc sets legacy-peer-deps=true; package.json overrides vite -> rolldown-vite.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build

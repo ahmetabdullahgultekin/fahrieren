@@ -11,7 +11,7 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
 
 ## P0 — Security & revenue blockers
 
-- [ ] **Lock down Firestore security rules** — `firestore.rules`
+- [x] **Lock down Firestore security rules** — `firestore.rules`  _(done on `exec/p0-2026-06-05`: all writes admin-gated via `isAdmin()`; `admins` read-only/`write:false`; analytics/sessions create+update-public but admin-only read/delete; contacts/newsletter append-only; default-deny added. Added `firebase.json`+`.firebaserc` so deploy works. ⚠️ Operator must run `firebase deploy --only firestore:rules`.)_
   - Why: EVERY collection is `allow read, write: if true` (lines 5-40), including `admins`, `products`,
     `analytics`, `contacts`, `newsletter`. Anyone on the internet can read/overwrite/delete all data,
     grant themselves admin (`admins` is the source of truth for `AuthService.isAdmin`), or wipe products.
@@ -22,8 +22,8 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
     rules deployed to Firebase project `trader-e-commerce` and a non-admin browser session can no longer
     write to `products`/`admins` (verify in console Rules Playground or a manual fetch).
 
-- [ ] **AdSense ad units cannot fill — no `adsbygoogle.js` loader is ever injected** — `index.html`,
-    `src/components/ads/GoogleAdSense.tsx`
+- [x] **AdSense ad units cannot fill — no `adsbygoogle.js` loader is ever injected** — `index.html`,
+    `src/components/ads/GoogleAdSense.tsx`  _(done: async loader script added to `index.html` `<head>` and verified present in built `dist/index.html`. Also fixed the ROOT cause: `index.html` pointed the Vite build at a stale committed `/assets/` bundle, so src/ changes never shipped — repointed entry to `/src/main.tsx`, removed committed `/assets/`, gitignored it. AdBanner now wired into HomePage; renders nothing until real slot ids are set.)_
   - Why: `<ins class="adsbygoogle">` is rendered, and `(adsbygoogle=[]).push({})` is called, but the
     `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2016267232144093`
     script is NOT present in `index.html` (only a `preconnect`) nor injected anywhere. Result: zero ad
@@ -33,7 +33,7 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
     `index.html` `<head>`; an ad unit fills on a deployed page (or shows AdSense's "ads.txt/approval"
     state, confirming the slot is wired).
 
-- [ ] **Replace placeholder AdSense slot IDs** — `src/config/adsConfig.ts`
+- [~] **Replace placeholder AdSense slot IDs** — `src/config/adsConfig.ts`  _(prepared, NOT final: dummy numeric ids replaced with clearly-named `PLACEHOLDER_*` constants + a prominent operator TODO; added `isRealSlot()` so placeholder/empty slots render nothing (no broken/empty `<ins>`, no policy violation). AdBanner now reads from `ADS_CONFIG.SLOTS`. ⚠️ Operator must paste real numeric slot ids from the ca-pub-2016267232144093 account.)_
   - Why: `SLOTS` are dummy values (`'1234567890'`, `'1122334455'`, …). Even with the loader fixed,
     these slots don't exist in the AdSense account, so units stay blank.
   - Done when: real Ad-unit slot IDs from the `ca-pub-2016267232144093` AdSense account replace the
@@ -46,8 +46,8 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
 
 ## P1 — Important / near-term
 
-- [ ] **Firebase config + GA id should not be placeholder/hardcoded** — `src/config/firebase.ts`,
-    `src/components/integrations/GoogleAnalytics.tsx`
+- [x] **Firebase config + GA id should not be placeholder/hardcoded** — `src/config/firebase.ts`,
+    `src/components/integrations/GoogleAnalytics.tsx`  _(GA part done: placeholder `G-XXXXXXXXXX` replaced; real id `G-7L1T6D6WL0` is now the default with an env override (`VITE_GA_MEASUREMENT_ID`) that is ignored unless it's a valid GA id. Verified in built bundle: GA tag now loads `G-7L1T6D6WL0`, placeholder absent. Firebase-config-from-env left as-is — keys are public and the env-read refactor is non-blocking.)_
   - Why: `firebaseConfig` is hardcoded in source instead of using the `VITE_*` env vars the `.env`
     already defines; `GA_MEASUREMENT_ID = 'G-XXXXXXXXXX'` is a placeholder so Analytics never initializes
     (the real GA id `G-7L1T6D6WL0` already lives in `firebase.ts` `measurementId`). Firebase web keys are
@@ -55,20 +55,20 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
   - Done when: GA uses the real measurement id (env-driven), GA verified firing in browser; optionally
     Firebase config read from `import.meta.env`.
 
-- [ ] **Refresh sitemap.xml `lastmod` + automate it** — `sitemap.xml`
+- [x] **Refresh sitemap.xml `lastmod` + automate it** — `sitemap.xml`  _(refreshed: all 11 `<lastmod>` 2025-10-21 → 2026-06-05 in BOTH `sitemap.xml` and the deploy-source `public/sitemap.xml`. Automation step still TODO; operator should re-submit in Search Console.)_
   - Why: every `<lastmod>` is `2025-10-21` (~7+ months stale). Stale sitemaps hurt crawl freshness and
     the "regularly updated content" AdSense/SEO posture claimed in `docs/SITE_INFO.md`.
   - Done when: `lastmod` reflects current content and a build step (or a documented manual step) keeps it
     current; submitted/validated in Search Console.
 
-- [ ] **Code-split the 975 KB main chunk** — `vite.config.ts`, `src/router/AppRouter.tsx`
+- [x] **Code-split the 975 KB main chunk** — `vite.config.ts`, `src/router/AppRouter.tsx`  _(resolved as a side effect of the build-input fix: the 975 KB chunk was the doubly-bundled stale artifact. Building from `src/main.tsx` yields a 228 KB main app chunk (gzip 71 KB) with NO >500 KB warning. Firebase (494 KB) and vendor (272 KB) remain separate vendor chunks.)_
   - Why: `dist/assets/index-*.js` is 975 KB (278 KB gzip) and triggers the >500 KB Rolldown warning.
     Firebase is already split (494 KB) but the app entry is still huge. Hurts LCP / Core Web Vitals,
     which feed AdSense quality + SEO.
   - Done when: `manualChunks` (or further lazy boundaries) bring the largest non-vendor chunk under the
     warning threshold; Lighthouse mobile performance improves.
 
-- [ ] **Establish a CI quality gate (lint) on PRs** — `.github/workflows/`
+- [x] **Establish a CI quality gate (lint) on PRs** — `.github/workflows/`  _(added `.github/workflows/ci.yml`: `npm ci` + `npm run build` on `pull_request` to main/master, build-only (no deploy), least-privilege `contents: read`, concurrency cancel. This gives Dependabot PRs a real status check. ⚠️ Operator must add this `CI / build` check to branch protection for it to gate merges. NOTE: lint left out of the gate because it's at 88 errors — adding it now would block all PRs; wire lint in after the `no-explicit-any` cleanup.)_
   - Why: `npm run lint` reports 88 errors but exits 0-ish in CI terms because no workflow runs it on PRs;
     the only workflow deploys on push to main/master. Dependabot PRs therefore have "no checks", which is
     why they're all `BLOCKED` against branch protection.
@@ -90,6 +90,7 @@ Priority key: **P0** = security / correctness / blocks revenue. **P1** = importa
     `components/about/AboutPage` & `components/contact/ContactPage` duplicate the routed `pages/` versions.
     Dead code inflates bundle/lint noise and confuses maintenance.
   - Done when: confirmed-unused files deleted, build still green, lint error count drops.
+  - _Partial on `exec/p0-2026-06-05`: confirmed `src/components/contact/ContactPage.tsx` is imported by 0 files (router uses `pages/ContactPage.tsx`); it survives only because it's tree-shaken out — it imports `Facebook/Instagram/Linkedin` from lucide-react which were removed in 1.11.0. Also fixed a LATENT BUILD BREAK this exposed: the routed `Footer.tsx` imported those same removed brand icons, so a from-source `npm ci && npm run build` failed with MISSING_EXPORT. Replaced Footer's brand icons with inline brand SVGs. Deleting the dead files themselves deferred._
 
 - [ ] **Fix the 88 `no-explicit-any` lint errors** — `src/services/*.ts`, `src/utils/*.ts`,
     `src/components/integrations/*`

@@ -1,8 +1,19 @@
 import {useEffect} from 'react';
 import {useLocation} from 'react-router-dom';
 
-// Google Analytics 4 Measurement ID
-const GA_MEASUREMENT_ID = 'G-XXXXXXXXXX'; // Replace with your actual ID
+// Google Analytics 4 Measurement ID.
+// The real property id (also in firebase.ts) is the default so analytics fires
+// in production regardless of env wiring. An env override (VITE_GA_MEASUREMENT_ID)
+// is honoured only when it looks like a real GA id, so a stale/placeholder env
+// value can never silently disable analytics.
+const DEFAULT_GA_MEASUREMENT_ID = 'G-7L1T6D6WL0';
+
+// A real GA4 id is "G-" followed by alphanumerics (it is never all X's).
+const isValidGaId = (id: string | undefined): id is string =>
+    !!id && /^G-[A-Z0-9]{6,}$/.test(id) && !/^G-X+$/.test(id);
+
+const envGaId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+const GA_MEASUREMENT_ID = isValidGaId(envGaId) ? envGaId : DEFAULT_GA_MEASUREMENT_ID;
 
 declare global {
     interface Window {
@@ -12,6 +23,9 @@ declare global {
 }
 
 export const initGA = () => {
+    if (!isValidGaId(GA_MEASUREMENT_ID)) {
+        return; // No valid measurement id configured — skip GA init.
+    }
     // Load GA script
     const script = document.createElement('script');
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;

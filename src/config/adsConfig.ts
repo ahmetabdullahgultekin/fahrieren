@@ -15,25 +15,37 @@ export const ADS_CONFIG = {
     ENABLED: true, // false yaparsanız hiç reklam gösterilmez
 
     // Reklam Birimleri - Her pozisyon için farklı slot ID
+    //
+    // ⚠️ TODO(operator): These are PLACEHOLDER slot IDs — they do NOT exist in
+    // the ca-pub-2016267232144093 AdSense account, so units will stay blank
+    // until replaced. Create one ad unit per position in the AdSense console
+    // (Ads → By ad unit → Display ads), copy each numeric data-ad-slot value,
+    // and paste it below. The AdSense loader script is already wired in
+    // index.html. Empty string ('') = unconfigured → GoogleAdSense renders
+    // nothing for that position (no broken/empty <ins>).
     SLOTS: {
         // Ana sayfa reklamları
-        HOME_TOP_BANNER: '1234567890',
-        HOME_INLINE: '1122334455',
-        HOME_SIDEBAR: '0987654321',
+        HOME_TOP_BANNER: 'PLACEHOLDER_HOME_TOP_BANNER',
+        HOME_INLINE: 'PLACEHOLDER_HOME_INLINE',
+        HOME_SIDEBAR: 'PLACEHOLDER_HOME_SIDEBAR',
 
         // Ürünler sayfası
-        PRODUCTS_TOP: '2233445566',
-        PRODUCTS_SIDEBAR: '6655443322',
-        PRODUCTS_INLINE: '7788990011',
+        PRODUCTS_TOP: 'PLACEHOLDER_PRODUCTS_TOP',
+        PRODUCTS_SIDEBAR: 'PLACEHOLDER_PRODUCTS_SIDEBAR',
+        PRODUCTS_INLINE: 'PLACEHOLDER_PRODUCTS_INLINE',
 
         // Blog sayfası
-        BLOG_TOP: '3344556677',
-        BLOG_INLINE: '8899001122',
-        BLOG_SIDEBAR: '9900112233',
+        BLOG_TOP: 'PLACEHOLDER_BLOG_TOP',
+        BLOG_INLINE: 'PLACEHOLDER_BLOG_INLINE',
+        BLOG_SIDEBAR: 'PLACEHOLDER_BLOG_SIDEBAR',
 
         // Genel
-        FOOTER_BANNER: '5544332211'
+        FOOTER_BANNER: 'PLACEHOLDER_FOOTER_BANNER'
     },
+
+    // A slot is "real" once it's all-numeric (AdSense slot IDs are numeric).
+    // Placeholder/empty values are treated as unconfigured.
+    isRealSlot: (slot: string): boolean => /^\d{6,}$/.test(slot),
 
     // Reklam Formatları
     FORMATS: {

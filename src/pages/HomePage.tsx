@@ -8,6 +8,7 @@ import {useFahriErenConfig} from '../hooks/useFahriErenConfig';
 import type {LanguageValue} from '../types/enums';
 import {PhoneType, RouteKey} from '../types/enums';
 import ProductCard from '../components/products/ProductCard';
+import AdBanner from '../components/ads/AdBanner';
 
 // Professional components
 import SEO from '../components/common/SEO';
@@ -136,6 +137,13 @@ const HomePage: React.FC = () => {
                 onSearch={handleHeroSearch}
                 onNavigateToProducts={handleNavigateToProducts}
             />
+
+            {/* AdSense — renders nothing until a real slot id is set in
+                adsConfig.ts (SLOTS.HOME_TOP_BANNER). Wiring is complete: once
+                the operator pastes a real slot id the unit fills automatically. */}
+            <div className="container mx-auto px-4 mt-8">
+                <AdBanner position="top"/>
+            </div>
 
             {/* Categories Section */}
             <section className="py-16 bg-gray-50">

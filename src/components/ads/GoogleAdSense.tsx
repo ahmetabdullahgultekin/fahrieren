@@ -39,13 +39,13 @@ const GoogleAdSense: React.FC<GoogleAdSenseProps> = ({
                                                      }) => {
     useEffect(() => {
         try {
-            // AdSense script'i yükle
-            if (!window.adsbygoogle) {
-                window.adsbygoogle = [];
-            }
-
-            // Reklamı push et
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
+            // The async loader (adsbygoogle.js, injected once in index.html)
+            // defines window.adsbygoogle as an array-like that processes pushed
+            // ad requests. If it hasn't loaded yet we still push: the loader,
+            // once ready, drains any queued {} entries. We only initialise the
+            // queue array as a fallback to avoid a ReferenceError.
+            window.adsbygoogle = window.adsbygoogle || [];
+            window.adsbygoogle.push({});
         } catch (error) {
             console.error('AdSense error:', error);
         }
