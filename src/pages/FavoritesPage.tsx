@@ -3,20 +3,21 @@ import {useNavigate} from 'react-router-dom';
 import {Heart, Package, Trash2} from 'lucide-react';
 import {useProducts, useTranslation} from '../hooks';
 import {useFahriErenConfig} from '../hooks/useFahriErenConfig';
+import type {Product} from '../types';
 import {PhoneType, RouteKey} from '../types/enums';
 import {motion} from 'framer-motion';
 import SEO from '../components/common/SEO';
 import ProductCard from '../components/products/ProductCard';
 
 const FavoritesPage: React.FC = () => {
-    const {t, language} = useTranslation();
+    const {language} = useTranslation();
     const config = useFahriErenConfig();
     const navigate = useNavigate();
     const {products, favorites, toggleFavorite} = useProducts();
 
     const favoriteProducts = products.filter(p => favorites.includes(p.id));
 
-    const handleViewDetails = (product: any) => {
+    const handleViewDetails = (product: Product) => {
         navigate(`${RouteKey.PRODUCTS}/${product.id}`);
     };
 
@@ -24,7 +25,7 @@ const FavoritesPage: React.FC = () => {
         window.open(config.config.contact.phoneUri(PhoneType.PRIMARY), '_self');
     };
 
-    const handleShare = (product: any) => {
+    const handleShare = (product: Product) => {
         if (navigator.share) {
             navigator.share({
                 title: product.title[language],

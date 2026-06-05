@@ -18,8 +18,8 @@ const LoginPage: React.FC = () => {
         try {
             await signIn(email, password);
             navigate(RouteKey.ADMIN_DASHBOARD);
-        } catch (error) {
-            // Error is handled by useAuth hook
+        } catch {
+            // Error is handled by useAuth hook (error state is in AuthContext)
         }
     };
 

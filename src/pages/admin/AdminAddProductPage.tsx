@@ -11,7 +11,7 @@ const AdminAddProductPage: React.FC = () => {
         navigate(RouteKey.ADMIN_PRODUCTS);
     };
 
-    const handleProductAdded = (product: Product) => {
+    const handleProductAdded = (_product: Product) => {
         // Product added successfully, navigate to products list
         navigate(RouteKey.ADMIN_PRODUCTS);
     };

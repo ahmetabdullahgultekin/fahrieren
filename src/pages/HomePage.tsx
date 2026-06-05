@@ -93,7 +93,7 @@ const HomePage: React.FC = () => {
     const services = config.serviceAreas();
 
     // Handlers
-    const handleViewDetails = (product: any) => {
+    const handleViewDetails = (product: {id: string}) => {
         window.location.href = `${RouteKey.PRODUCTS}/${product.id}`;
     };
 
@@ -101,7 +101,7 @@ const HomePage: React.FC = () => {
         window.open(config.config.contact.phoneUri(PhoneType.PRIMARY), '_self');
     };
 
-    const handleShare = (product: any) => {
+    const handleShare = (product: {id: string; title: Record<string, string>; description: Record<string, string>}) => {
         if (navigator.share) {
             navigator.share({
                 title: product.title[currentLanguage],

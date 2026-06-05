@@ -21,8 +21,9 @@ const AdminLoginPage: React.FC = () => {
         try {
             await signIn(email, password);
             navigate(RouteKey.ADMIN_DASHBOARD);
-        } catch (err: any) {
-            setError(err.message || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+        } catch (err: unknown) {
+            console.error('Admin login failed:', err);
+            setError(err instanceof Error ? err.message : 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
         } finally {
             setLoading(false);
         }

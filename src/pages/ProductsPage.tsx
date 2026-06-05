@@ -3,6 +3,7 @@ import {useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, Grid as GridIcon, List, SlidersHorizontal} from 'lucide-react';
 import {useProducts, useTranslation} from '../hooks';
 import {useFahriErenConfig} from '../hooks/useFahriErenConfig';
+import type {FilterOptions, Product} from '../types';
 import {PhoneType} from '../types/enums';
 import SEO from '../components/common/SEO';
 import ProductCard from '../components/products/ProductCard';
@@ -47,7 +48,7 @@ const ProductsPage: React.FC = () => {
         const minPrice = searchParams.get('minPrice');
         const maxPrice = searchParams.get('maxPrice');
 
-        const newFilters: any = {};
+        const newFilters: Partial<FilterOptions> = {};
 
         if (search) {
             newFilters.searchQuery = search;
@@ -86,7 +87,7 @@ const ProductsPage: React.FC = () => {
     };
 
     // Handlers
-    const handleViewDetails = (product: any) => {
+    const handleViewDetails = (product: Product) => {
         navigate(`/urunler/${product.id}`);
     };
 
@@ -94,7 +95,7 @@ const ProductsPage: React.FC = () => {
         window.open(config.config.contact.phoneUri(PhoneType.PRIMARY), '_self');
     };
 
-    const handleShare = (product: any) => {
+    const handleShare = (product: Product) => {
         if (navigator.share) {
             navigator.share({
                 title: product.title[language],

@@ -39,7 +39,7 @@ Vitest + Testing Library. `.npmrc` sets `legacy-peer-deps=true`; `package.json` 
 npm run dev        # dev server
 npm run build      # -> dist/
 npm test           # vitest run (12 tests today)
-npm run lint       # ESLint (42 errors after 2026-06-05 cleanup: ~13 no-explicit-any + ~22 no-unused-vars + misc; NOT yet gated)
+npm run lint       # ESLint — 0 errors; gated in CI (chore/lint-zero-2026-06-05)
 ./deploy.sh        # build + rsync dist/ -> Hostinger (run from a host that can SSH to Hostinger)
 ```
 
@@ -73,9 +73,9 @@ to make units fill — no code change needed after that.
 
 ## CI
 
-`.github/workflows/ci.yml` runs `npm ci && npm run build && npm test` on PRs (build-only). Operator must
-add the `CI / build` check to branch protection to gate merges and unblock Dependabot PRs. Lint is NOT
-gated yet (88→51 baseline; gate it once it hits 0 — see `ROADMAP.md` Phase 5).
+`.github/workflows/ci.yml` runs `npm ci && npm run build && npm test && npm run lint` on PRs. Lint is now
+gated (0-error baseline as of 2026-06-05). Operator must add the `CI / build` check to branch protection
+to gate merges and unblock Dependabot PRs.
 
 ## Conventions & gotchas
 

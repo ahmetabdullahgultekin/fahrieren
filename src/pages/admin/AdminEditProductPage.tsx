@@ -28,8 +28,9 @@ const AdminEditProductPage: React.FC = () => {
                 } else {
                     setError('Ürün bulunamadı');
                 }
-            } catch (err: any) {
-                setError(err.message || 'Ürün yüklenirken hata oluştu');
+            } catch (err: unknown) {
+                console.error('Product load failed:', err);
+                setError(err instanceof Error ? err.message : 'Ürün yüklenirken hata oluştu');
             } finally {
                 setLoading(false);
             }

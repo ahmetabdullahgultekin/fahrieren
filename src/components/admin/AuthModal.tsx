@@ -29,8 +29,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({isOpen, onClose, onSuccess}
             onClose();
             setEmail('');
             setPassword('');
-        } catch (error) {
-            // Error is handled by useAuth hook
+        } catch {
+            // Error is handled by useAuth hook (error state is in AuthContext)
         }
     };
 

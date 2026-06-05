@@ -12,7 +12,7 @@ interface AddProductPageProps {
 }
 
 const AddProductPage: React.FC<AddProductPageProps> = ({onBack, onProductAdded}) => {
-    const {language, t} = useTranslation();
+    const {language} = useTranslation();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
@@ -40,7 +40,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({onBack, onProductAdded})
         {value: 'farm', label: {tr: 'Çiftlik Ürünleri', en: 'Farm Products'}}
     ];
 
-    const handleInputChange = (field: string, value: any, lang?: string) => {
+    const handleInputChange = (field: string, value: string | ProductCategory, lang?: string) => {
         if (lang) {
             setFormData(prev => ({
                 ...prev,
@@ -221,9 +221,10 @@ const AddProductPage: React.FC<AddProductPageProps> = ({onBack, onProductAdded})
                 resetForm();
             }, 2000);
 
-        } catch (error: any) {
+        } catch (err: unknown) {
+            console.error('Product add failed:', err);
             setStatus('error');
-            setMessage(`❌ Hata: ${error.message}`);
+            setMessage(`❌ Hata: ${err instanceof Error ? err.message : 'Bilinmeyen hata'}`);
         } finally {
             setIsSubmitting(false);
         }

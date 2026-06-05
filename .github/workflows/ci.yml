@@ -37,6 +37,6 @@ jobs:
 
       - name: Test
         run: npm test
-      # NOTE: lint is intentionally NOT gated yet — it sits at an 88-error
-      # no-explicit-any baseline that would block every PR. Wire `npm run lint`
-      # in here once that baseline is driven down (see ROADMAP Phase 3).
+
+      - name: Lint
+        run: npm run lint

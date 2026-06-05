@@ -74,12 +74,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({onLogout}) => {
         }
     };
 
-    const handleProductAdded = (product: Product) => {
+    const handleProductAdded = (_product: Product) => {
         refetch();
         setCurrentView('dashboard');
     };
 
-    const handleProductUpdated = (product: Product) => {
+    const handleProductUpdated = (_product: Product) => {
         refetch();
         setCurrentView('dashboard');
     };

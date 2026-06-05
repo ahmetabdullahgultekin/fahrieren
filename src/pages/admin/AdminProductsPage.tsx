@@ -7,7 +7,7 @@ import {RouteKey} from '../../types/enums';
 import {motion} from 'framer-motion';
 
 const AdminProductsPage: React.FC = () => {
-    const {user, signOut} = useAuth();
+    const {signOut} = useAuth();
     const {products} = useProducts();
     const {language} = useTranslation();
     const navigate = useNavigate();

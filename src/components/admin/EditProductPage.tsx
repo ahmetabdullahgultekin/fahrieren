@@ -11,7 +11,7 @@ interface EditProductPageProps {
 }
 
 const EditProductPage: React.FC<EditProductPageProps> = ({product, onBack, onProductUpdated}) => {
-    const {language, t} = useTranslation();
+    const {language} = useTranslation();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
@@ -48,7 +48,7 @@ const EditProductPage: React.FC<EditProductPageProps> = ({product, onBack, onPro
         }
     }, [status]);
 
-    const handleInputChange = (field: string, value: any, lang?: string) => {
+    const handleInputChange = (field: string, value: string | ProductCategory, lang?: string) => {
         if (lang) {
             setFormData(prev => ({
                 ...prev,
@@ -58,63 +58,6 @@ const EditProductPage: React.FC<EditProductPageProps> = ({product, onBack, onPro
             setFormData(prev => ({
                 ...prev,
                 [field]: value
-            }));
-        }
-    };
-
-    const handleFeatureChange = (index: number, value: string, lang: 'tr' | 'en') => {
-        setFormData(prev => ({
-            ...prev,
-            features: {
-                ...prev.features,
-                [lang]: prev.features[lang].map((item, i) => i === index ? value : item)
-            }
-        }));
-    };
-
-    const addFeature = (lang: 'tr' | 'en') => {
-        setFormData(prev => ({
-            ...prev,
-            features: {
-                ...prev.features,
-                [lang]: [...prev.features[lang], '']
-            }
-        }));
-    };
-
-    const removeFeature = (index: number, lang: 'tr' | 'en') => {
-        if (formData.features[lang].length > 1) {
-            setFormData(prev => ({
-                ...prev,
-                features: {
-                    ...prev.features,
-                    [lang]: prev.features[lang].filter((_, i) => i !== index)
-                }
-            }));
-        }
-    };
-
-    const handleSpecificationChange = (index: number, field: 'key' | 'value', value: string) => {
-        setFormData(prev => ({
-            ...prev,
-            specifications: prev.specifications.map((spec, i) =>
-                i === index ? {...spec, [field]: value} : spec
-            )
-        }));
-    };
-
-    const addSpecification = () => {
-        setFormData(prev => ({
-            ...prev,
-            specifications: [...prev.specifications, {key: '', value: ''}]
-        }));
-    };
-
-    const removeSpecification = (index: number) => {
-        if (formData.specifications.length > 1) {
-            setFormData(prev => ({
-                ...prev,
-                specifications: prev.specifications.filter((_, i) => i !== index)
             }));
         }
     };
@@ -225,9 +168,10 @@ const EditProductPage: React.FC<EditProductPageProps> = ({product, onBack, onPro
                 onBack();
             }, 2000);
 
-        } catch (error: any) {
+        } catch (err: unknown) {
+            console.error('Product update failed:', err);
             setStatus('error');
-            setMessage(`❌ Hata: ${error.message}`);
+            setMessage(`❌ Hata: ${err instanceof Error ? err.message : 'Bilinmeyen hata'}`);
         } finally {
             setIsSubmitting(false);
         }

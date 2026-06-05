@@ -2,8 +2,8 @@ import React, {useCallback, useEffect, useState} from 'react';
 import apiManager from '../services/apiManager';
 import type {ContactForm, FilterOptions, Product} from '../types';
 
-// Re-export the translation hook from context
-export {useTranslation, useLanguage} from '../contexts/LanguageContext';
+// Re-export the translation hook from the context definition (non-component module)
+export {useTranslation, useLanguage} from '../contexts/LanguageContextDef';
 
 // SEO Hook
 export const useSEO = () => {

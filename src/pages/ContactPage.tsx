@@ -58,7 +58,8 @@ ${formData.message}
 
             toast.success(t('contact.form.success'));
             setFormData({name: '', email: '', phone: '', subject: '', message: ''});
-        } catch (error) {
+        } catch (err: unknown) {
+            console.error('Contact form submission error:', err);
             toast.error(t('contact.form.error'));
         } finally {
             setIsSubmitting(false);
