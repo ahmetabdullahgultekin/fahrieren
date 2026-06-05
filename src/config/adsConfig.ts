@@ -62,8 +62,10 @@ export const ADS_CONFIG = {
     }
 };
 
-// Test modu için mock reklam gösterimi
-export const TEST_MODE = process.env.NODE_ENV === 'development';
+// Test modu için mock reklam gösterimi.
+// NOTE: Vite client builds expose env via import.meta.env, NOT process.env
+// (process is undefined in the browser). Use import.meta.env.DEV.
+export const TEST_MODE = import.meta.env.DEV;
 
 // Reklam pozisyonları ve özellikleri
 export const AD_POSITIONS = {

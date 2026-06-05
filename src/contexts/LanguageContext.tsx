@@ -43,7 +43,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({children}) =>
         try {
             translationService.setLanguage(language);
             return translationService.translate(key);
-        } catch (error) {
+        } catch {
             console.warn('Translation failed for key:', key);
             return key;
         }
