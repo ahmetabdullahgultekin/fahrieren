@@ -114,11 +114,19 @@
     <link href="https://fonts.googleapis.com" rel="preconnect">
     <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
     <link href="https://pagead2.googlesyndication.com" rel="preconnect">
-  <script type="module" crossorigin src="/assets/index-CHRMK4Yi.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-BBZsY560.js">
-  <link rel="modulepreload" crossorigin href="/assets/vendor-BNtEKHOV.js">
-  <link rel="modulepreload" crossorigin href="/assets/firebase-C6TNyOse.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-CtuLGnUT.css">
+
+    <!-- Google AdSense loader — REQUIRED for <ins class="adsbygoogle"> units to fill.
+         Publisher id ca-pub-2016267232144093 (Fahri Eren AdSense account).
+         This async script must load once per page; the <ins> push() calls in
+         GoogleAdSense.tsx do nothing without it. -->
+    <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2016267232144093"
+            crossorigin="anonymous"></script>
+
+    <!-- Vite entry — build from SOURCE (src/main.tsx). The previous committed
+         <script src="/assets/index-*.js"> pointed the build at stale pre-built
+         bundles, so src/ changes never reached production. -->
+    <script type="module" src="/src/main.tsx"></script>
 </head>
 <body>
 <noscript>

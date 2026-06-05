@@ -1,42 +1,89 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read access to products for all users, write for development (temporarily)
-    match /products/{document} {
-      allow read, write: if true; // Development mode - allows all operations
+
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
+    // An admin is a signed-in user whose UID has a document in /admins.
+    // NOTE: AuthService.isAdmin() reads admins/{user.uid} (doc id == uid),
+    // so admin documents MUST be keyed by the user's UID. Seed them from the
+    // Firebase Console or the Admin SDK (writes to /admins are denied below).
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Allow read access to admins collection for all users (development mode)
-    match /admins/{document} {
-      allow read, write: if true;
+    // ---------------------------------------------------------------------
+    // admins — source of truth for admin authorization.
+    // Readable only by signed-in users (the app checks its own UID doc).
+    // Writes are DENIED from clients: seed/manage admins via Console/Admin SDK
+    // only, otherwise anyone could grant themselves admin.
+    // ---------------------------------------------------------------------
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
-    // Allow all users to read categories and static content
-    match /categories/{document} {
-      allow read, write: if true;
+    // ---------------------------------------------------------------------
+    // Public catalog content — world-readable, admin-only writes.
+    // ---------------------------------------------------------------------
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Analytics collections (development mode)
-    match /analytics/{document} {
-      allow read, write: if true;
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    match /sessions/{document} {
-      allow read, write: if true;
+    // ---------------------------------------------------------------------
+    // Lead-capture / append-only collections.
+    // Anyone may create a record (contact form, newsletter sign-up), but
+    // nobody may read, update, or delete from the client. Admins read these
+    // via the Console / Admin SDK (which bypass rules).
+    // ---------------------------------------------------------------------
+    match /contacts/{contactId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
-    match /events/{document} {
-      allow read, write: if true;
+    match /newsletter/{subscriberId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
-    // Newsletters collection
-    match /newsletter/{document} {
-      allow read, write: if true;
+    // ---------------------------------------------------------------------
+    // Analytics telemetry — anonymous visitors increment counters via
+    // setDoc(..., {merge:true}) + increment(), so create AND update must be
+    // public. Reads (admin dashboard) and deletes are admin-only; the client
+    // already degrades gracefully to localStorage on permission-denied.
+    // ---------------------------------------------------------------------
+    match /analytics/{docId} {
+      allow create, update: if true;
+      allow read, delete: if isAdmin();
     }
 
-    // Contact forms collection
-    match /contacts/{document} {
-      allow read, write: if true;
+    match /sessions/{sessionId} {
+      allow create, update: if true;
+      allow read, delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      // Custom events are addDoc()-created and never updated client-side.
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------------
+    // Default deny — anything not matched above is forbidden.
+    // ---------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
