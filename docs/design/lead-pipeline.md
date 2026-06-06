@@ -12,12 +12,49 @@
 
 | | |
 |---|---|
-| **Status** | Draft — for review |
+| **Status** | Accepted — S1 + client-resilience tier SHIPPED (2026-06-06) |
 | **Author** | Engineering (2026-06-05) |
 | **Reviewers** | Fahri Eren (owner) |
 | **Feature flag** | `VITE_LEAD_PIPELINE_ENABLED` (default `false`) |
 | **ADRs** | [ADR-0001 Lead delivery and abuse protection](../adr/0001-lead-delivery-and-abuse-protection.md) |
 | **Tracking** | ROADMAP lead-pipeline → slices S1–S4 |
+
+---
+
+## 0. Implementation status (2026-06-06)
+
+The **client-resilience tier** of this design has shipped behind the
+`VITE_LEAD_PIPELINE_ENABLED` flag (default OFF):
+
+- **Durable local outbox** (`src/services/leadOutbox.ts`) — every submitted lead
+  is written to `localStorage` (`fahrieren.leadOutbox.v1`) *before* any network
+  call, so it is never silently dropped. Survives reload/crash/offline.
+- **Idempotency keys** — each lead carries a stable `id` (the outbox key),
+  written to Firestore as `clientLeadId`; the outbox never re-delivers a `sent`
+  item, and retries reuse the same key so the owner can dedupe at-least-once
+  delivery.
+- **Retry with exponential backoff** — failed deliveries are retried (base 2 s,
+  ×2, capped 5 min, up to 6 attempts), automatically on mount and on `online`.
+- **Explicit status, no swallowed catch** — `LeadService` returns
+  `{success}` / `{queued}` / `{error}`; the UI shows success, a "saved &
+  will retry" (queued) state, or a real error — never a fake success (the old
+  `dataService` bug). See `src/services/leadService.ts`, `src/hooks/index.ts`.
+- **Recovery affordance** — `LeadOutboxBanner` (mounted in `Layout`) lists
+  queued/failed leads with per-item and bulk retry + discard.
+- **Hardened Firestore rules** — `contacts`/`newsletter` now validate shape,
+  size, field allowlist, required `consentAt`, server `createdAt`, and the
+  `clientLeadId`. (Rules deploy is an operator step.)
+- **KVKK/GDPR consent** — required checkbox on the contact form when the flag is
+  ON; `consentAt` ISO timestamp stored on every lead.
+- **Tests** — `leadOutbox.test.ts` (durability, idempotency, backoff, retry,
+  failure-parking, storage-failure resilience), `leadService.test.ts`
+  (success/queued/no-fake-success/idempotency), `leadHooks.test.tsx`
+  (explicit status surfacing).
+
+**Operator-gated, NOT yet shipped** (require Firebase Console / Blaze plan):
+App Check enforcement (reCAPTCHA Enterprise), Cloud Functions notification
+(S3), admin LeadsPage (S4). The durable client path works correctly without
+them — leads accumulate in Firestore (or the outbox if offline) regardless.
 
 ---
 
