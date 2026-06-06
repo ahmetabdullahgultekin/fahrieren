@@ -46,6 +46,42 @@ on push to `main`/`master`.
 
 ---
 
+## Reliable Lead Pipeline — tier 1 SHIPPED (2026-06-06)
+
+The site's most important reliability guarantee: **a submitted lead is never
+silently dropped.** Design + ADR: `docs/design/lead-pipeline.md`,
+`docs/adr/0001-lead-delivery-and-abuse-protection.md`. Diagram:
+`docs/diagrams/lead-pipeline.mmd`. Shipped behind `VITE_LEAD_PIPELINE_ENABLED`
+(default **OFF** = legacy path, fully reversible kill-switch).
+
+**Done this cycle (client-resilience tier, flag-gated):**
+
+- [x] **Durable local outbox** (`src/services/leadOutbox.ts`) — leads persist to
+  `localStorage` *before* any network call; survive reload/crash/offline.
+- [x] **Idempotency keys** — each lead carries a stable `clientLeadId`; the outbox
+  never re-delivers a `sent` item (dedupes at-least-once retries).
+- [x] **Retry with exponential backoff** (2 s → 5 min cap, 6 attempts), auto on
+  mount and on browser `online`.
+- [x] **Explicit success/queued/error UX** — `LeadService` returns a real result;
+  the fake `{ success: true }` swallow in `dataService` is bypassed on this path.
+- [x] **Recovery affordance** — `LeadOutboxBanner` lists queued/failed leads with
+  per-item + bulk retry and discard.
+- [x] **Hardened Firestore rules** — shape/size/field-allowlist validation +
+  required `consentAt` + server `createdAt` on `contacts`/`newsletter`.
+- [x] **KVKK/GDPR consent** checkbox + `consentAt` timestamp (flag-ON).
+- [x] **Tests** — outbox/idempotency/backoff/retry + service + hook status (25 new).
+
+**Next (operator-gated — Firebase Console / Blaze plan; tracked in Phase 1/4):**
+
+- [ ] Enable **App Check** (reCAPTCHA Enterprise) enforcement; add site key.
+- [ ] Deploy hardened **Firestore rules** (`firebase deploy --only firestore:rules`).
+- [ ] **Cloud Function** `onNewContactLead` notification (S3) — Blaze plan.
+- [ ] **Admin LeadsPage** (S4) — list/triage/CSV/WhatsApp deep-link.
+- [ ] Flip `VITE_LEAD_PIPELINE_ENABLED=true` in prod after a canary soak; then
+  delete the dead JSONBin stack.
+
+---
+
 ## Phase 0 — Foundation hardening (DONE / shipped this cycle)
 
 The build-and-deploy substrate everything else depends on.
@@ -114,11 +150,13 @@ The build-and-deploy substrate everything else depends on.
 
 ## Phase 4 — Lead funnel & admin UX
 
-- [ ] **Persist contact submissions** to the (now append-only) `contacts` collection in addition to
-  the WhatsApp/`mailto` hand-off, so no lead is lost if WhatsApp is closed.
-- [ ] **Admin lead inbox** — list/triage stored leads, mark contacted, export CSV.
-- [ ] **Newsletter** — wire the append-only `newsletter` collection to a real send path (or document
-  it as collect-only) and add double opt-in.
+- [x] **Persist contact submissions** durably (outbox + idempotent Firestore write) in addition to
+  the WhatsApp hand-off, so no lead is lost if WhatsApp is closed — SHIPPED 2026-06-06 behind
+  `VITE_LEAD_PIPELINE_ENABLED` (see the Reliable Lead Pipeline section above). Flip the flag in
+  prod after canary soak.
+- [ ] **Admin lead inbox** — list/triage stored leads, mark contacted, export CSV (design S4).
+- [ ] **Newsletter** — durable sign-up persistence SHIPPED on the same flag; still needs a real
+  send path (or document it as collect-only) and double opt-in.
 - [ ] **Admin product CRUD UX** — inline validation, optimistic updates, bulk actions, draft/publish
   state, and an activity/audit view.
 - [ ] **Image upload story** — replace the `uploadProductImage` stub with Firebase Storage (already
@@ -139,12 +177,13 @@ The build-and-deploy substrate everything else depends on.
 
 ### From the 2026-06-05 code-quality review (`docs/CODE_QUALITY_2026-06-05.md`)
 
-- [ ] **Collapse the two data layers into Firebase-only (biggest refactor).** Delete the dead
-  JSONBin stack (`services/apiManager.ts`, `config/apiConfig.ts`, and the API methods of
-  `services/dataService.ts` — keep the static `getPartners`/`getPersonalInfo`), and re-point
-  `seoService` analytics/contact-info reads off `apiManager`. The contact/newsletter forms
-  currently POST to a placeholder JSONBin API and 401, while the already-secured Firestore
-  `contacts`/`newsletter` collections have no writer (review P1-2 / P2-3; overlaps Phase 4).
+- [ ] **Collapse the two data layers into Firebase-only (biggest refactor).** The durable lead
+  pipeline (2026-06-06) already routes contact/newsletter writes to Firestore when
+  `VITE_LEAD_PIPELINE_ENABLED=true`, bypassing the JSONBin `apiManager` path (which only runs as
+  the flag-OFF legacy fallback). Remaining: once the flag is permanently ON in prod, delete the
+  dead JSONBin stack (`services/apiManager.ts` lead methods, `config/apiConfig.ts` JSONBIN keys,
+  the fake-success catches in `services/dataService.ts` — keep static `getPartners`/`getPersonalInfo`)
+  and re-point `seoService` analytics/contact-info reads (review P1-2 / P2-3).
 - [ ] **Fix or remove the broken admin-bootstrap path.** `AuthService.createAdminUser` does an
   auto-ID `addDoc` that the rules reject (`admins write:false`) and that `isAdmin` (UID-keyed)
   would never match; the `AuthModal` "create admin" button cannot work. Remove it (admins are
@@ -203,8 +242,14 @@ None are required for revenue today; each is a deliberate step-up when scale or 
 - **Tailwind v4 migration** — a dedicated branch: `@tailwindcss/postcss`, `@import "tailwindcss"`,
   CSS-first `@theme` for the custom `primary` palette, re-verify `@apply` usages, visual-diff every
   page. (Held off the dependency stream because v4 is a breaking rewrite.)
-- **ESLint 10 + plugin majors** — upgrade eslint/`eslint-plugin-react-hooks` together on a branch
-  once the lint baseline is clean, so the new rules can be enforced rather than suppressed.
+- **ESLint 10 + plugin majors** — verified 2026-06-06: eslint 10 (Dependabot #12) +
+  `eslint-plugin-react-hooks` 7 (#15) are a paired breaking upgrade. eslint 10 rejects the
+  plugin's legacy string-array `plugins` key in flat config (exit 2); a manual flat-config
+  migration loads, but react-hooks 7's new rules (`react-hooks/set-state-in-effect`) then flag
+  6 pre-existing effect-pattern violations in `src/hooks/index.ts` (the "you-might-not-need-an-
+  effect" `setState`-in-`useEffect` pattern). Both Dependabot PRs were CLOSED; do this as a
+  dedicated branch: migrate the config AND refactor the 6 effects so lint runs green, then
+  enforce the new rules.
 - **Observability** — error reporting (Sentry or similar), uptime monitoring on `fahrieren.com`,
   and a synthetic check that fails loudly if the live bundle ever goes stale again.
 - **Security posture** — periodic dependency-audit review, CSP headers, Firebase App Check

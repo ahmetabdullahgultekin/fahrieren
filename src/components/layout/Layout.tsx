@@ -4,6 +4,7 @@ import Footer from './Footer';
 import {ChevronUp} from 'lucide-react';
 import {useFahriErenConfig} from '../../hooks/useFahriErenConfig';
 import PWAInstallPrompt from '../common/PWAInstallPrompt';
+import LeadOutboxBanner from '../leads/LeadOutboxBanner';
 import {useScrollToTop} from '../../hooks/useScrollToTop';
 
 interface LayoutProps {
@@ -33,6 +34,9 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
 
             {/* PWA Install Prompt */}
             <PWAInstallPrompt/>
+
+            {/* Reliable lead pipeline: surface queued/failed leads for recovery */}
+            <LeadOutboxBanner/>
         </div>
     );
 };

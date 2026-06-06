@@ -1,11 +1,18 @@
 # TODO — fahrieren.com (Fahri Eren ticaret platformu)
 
-> Updated 2026-06-05 on branch `dev/2026-06-05` (PR #24 landed to `master`; this branch follows).
-> Live state: PR #24 (Firestore lockdown + AdSense loader + stale-`/assets/` build-input fix + GA id
-> + sitemap + CI gate) is **merged to `master` and DEPLOYED + browser-verified live** on
-> https://fahrieren.com (fresh build serving, AdSense loader present, TR/EN working). Build green,
-> 12 vitest tests passing, `npm run lint` down 88 → **51** errors (non-gating), `deploy.sh` fixed to
-> build + rsync `dist/`, service worker now self-heals across deploys.
+> Updated 2026-06-06 on branch `feat/reliable-lead-pipeline`.
+> Latest: the **Reliable Lead Pipeline — client-resilience tier** shipped behind
+> `VITE_LEAD_PIPELINE_ENABLED` (default OFF): durable localStorage outbox + retry/backoff +
+> idempotency + explicit success/queued/error UX + a recovery banner + hardened `contacts`/
+> `newsletter` rules + KVKK consent. Build green, **37 vitest tests** (+25 new), `npm run lint` = 0
+> errors. Dependabot eslint #12 + react-hooks #15 CLOSED (re-confirmed breaking); Tailwind v4 #13
+> left OPEN for a visual-review branch. See ROADMAP.md "Reliable Lead Pipeline" and
+> `docs/design/lead-pipeline.md`.
+>
+> Prior (2026-06-05): PR #24 (Firestore lockdown + AdSense loader + stale-`/assets/` build-input fix
+> + GA id + sitemap + CI gate) merged to `master` + DEPLOYED + browser-verified on
+> https://fahrieren.com; lint later driven 88 → **0** (PR #31, gated in CI); `deploy.sh` fixed to
+> build + rsync `dist/`; self-healing service worker.
 >
 > Priority key: **P0** = security / correctness / blocks revenue. **P1** = important, near-term.
 > **P2** = quality / hardening. **P3** = nice-to-have / future. See ROADMAP.md for the long plan.
@@ -136,12 +143,13 @@
 
 ## P3 — Nice-to-have / future
 
-- [ ] **Persist contact form submissions** — `src/pages/ContactPage.tsx`
-  - Why: the contact form only opens WhatsApp/`mailto` (`handleSubmit` → `window.open(whatsappUrl)`); it
-    never writes to the `contacts` Firestore collection (so that rule is currently unused). No record of
-    leads if the user closes WhatsApp.
-  - Done when: submissions also `addDoc` to `contacts` (guarded by the new rules), or the design is
-    confirmed WhatsApp-only and the unused `contacts` rule removed.
+- [x] **Persist contact form submissions** — `src/pages/ContactPage.tsx`, `src/services/leadService.ts`
+  - _Done (2026-06-06, flag-gated): when `VITE_LEAD_PIPELINE_ENABLED=true`, `handleSubmit` enqueues the
+    lead in a durable localStorage outbox and `addDoc`s to `contacts` (idempotent `clientLeadId`,
+    retry/backoff) in addition to the WhatsApp hand-off — so no lead is lost even if the user closes
+    WhatsApp. The `contacts`/`newsletter` rules are now actively used + shape-validated. Operator must
+    deploy the rules and flip the flag ON in prod after a canary soak. See the ROADMAP "Reliable Lead
+    Pipeline" section._
 
 - [ ] **Pre-render / SSG for SEO** — SPA fallback is `_redirects` / `.htaccess` to `index.html`
   - Why: fully client-rendered SPA; product detail/listing content isn't in initial HTML. Googlebot
@@ -172,12 +180,13 @@ build + test on PRs) now gives any future Dependabot PR a real status check — 
 | **#18** | `@protobufjs/utf8` 1.1.0 → 1.1.1 (transitive) | patch / security | ✅ **DONE** — pinned 1.1.1 on dev branch (subsumed by #23 path) |
 | **#21** | grouped minor-and-patch, **15 updates** (firebase 12.12→12.13, react/react-dom 19.2.5→19.2.6, react-router 7.14→7.15, react-hook-form 7.73→7.76, @hookform/resolvers 5.2→5.4, @tanstack/react-query 5.100.1→.14, lucide-react 1.11→1.16, @vitejs/plugin-react 6.0.1→6.0.2, typescript-eslint 8.59.0→.4, @types/react, etc.) | minor/patch | **Test-then-merge** — low risk but it's 15 libs incl. react-router & firebase; do one `npm ci && npm run build` + a manual click-through of home/products/admin before merging |
 | **#14** | `@types/node` 24.5.2 → 25.6.0 | dev, major (types only) | ✅ **DONE** — bumped 25.6.0 on dev branch, build+test green |
-| **#15** | `eslint-plugin-react-hooks` 5.2.0 → 7.1.1 | dev, major | **HELD** — major jump; prior analysis found lint crashes (exit 2) on the current flat-config. Do with #12 on an eslint-upgrade branch |
-| **#12** | `eslint` 9.36.0 → 10.2.1 | dev, MAJOR | **Hold / test in a branch** — eslint 10 may need flat-config/plugin-peer updates (`@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks` all pinned to 9-era). Bundle with #15 and `@eslint/js` bump; verify `npm run lint` runs before merge. Don't merge blind. |
-| **#13** | `tailwindcss` 3.4.17 → **4.2.4** | dev, MAJOR (breaking) | **HOLD — needs a dedicated migration branch** — v4 is a rewrite: `postcss.config.js` must switch `tailwindcss` → `@tailwindcss/postcss`; `src/index.css` `@tailwind base/components/utilities` → `@import "tailwindcss"`; `tailwind.config.js` custom `primary` colors/`extend` move to CSS-first `@theme`; `@apply bg-primary-600` (3 uses in index.css) breaks unless tokens re-declared. Do NOT merge into the deps stream. Migrate deliberately, visually diff every page, then ship. |
+| **#15** | `eslint-plugin-react-hooks` 5.2.0 → 7.1.1 | dev, major | ❌ **CLOSED 2026-06-06** — re-confirmed breaking. Paired with #12; react-hooks 7's flat config still emits a string-array `plugins` key (rejected by eslint 10, exit 2), and its new `react-hooks/set-state-in-effect` rule flags 6 pre-existing effect violations in `src/hooks/index.ts` → lint exits 1. Needs a config migration + effect refactor on a dedicated branch. |
+| **#12** | `eslint` 9.36.0 → 10.2.1 | dev, MAJOR | ❌ **CLOSED 2026-06-06** — re-confirmed breaking. eslint 10 rejects the react-hooks plugin's legacy `plugins: ['react-hooks']` shape in flat config (`Oops! Something went wrong … "plugins" to be an object`, exit 2). Even after a manual flat-config migration, the upgrade is blocked by #15's new rules (see above). Do #12 + #15 together on a dedicated eslint-upgrade branch; ship only if `npm run lint` runs green. |
+| **#13** | `tailwindcss` 3.4.17 → **4.2.4** | dev, MAJOR (breaking) | 🟡 **LEFT OPEN 2026-06-06** (commented) — major engine/config rewrite with visual implications; needs a dedicated visual-review branch: `postcss.config.js` `tailwindcss` → `@tailwindcss/postcss`; `src/index.css` `@tailwind …` → `@import "tailwindcss"`; `tailwind.config.js` custom `primary`/`extend` → CSS-first `@theme`; `@apply bg-primary-600` (3 uses) breaks unless tokens re-declared. Do NOT auto-merge; visually diff every page, then ship. |
 
-Recommended order: merge #23, #18, #14 immediately → land #21 after one build+smoke → handle eslint (#12+#15)
-together on a branch → tackle Tailwind v4 (#13) last as its own migration project.
+Recommended order: merge #23, #18, #14 (done) → land #21 after one build+smoke → handle eslint (#12+#15,
+now CLOSED) together on a dedicated branch when ready → tackle Tailwind v4 (#13, OPEN) last as its own
+visual-review migration project.
 
 Note: the briefing said "8 open Dependabot PRs"; `gh pr list -R ahmetabdullahgultekin/fahrieren --state open`
 returns **7** at HEAD (#12, #13, #14, #15, #18, #21, #23). The 8th was likely already merged/closed.

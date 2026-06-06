@@ -37,11 +37,18 @@ Vitest + Testing Library. `.npmrc` sets `legacy-peer-deps=true`; `package.json` 
 
 ```bash
 npm run dev        # dev server
-npm run build      # -> dist/
-npm test           # vitest run (12 tests today)
+npm run build      # -> dist/  (esbuild via vite; NO typecheck — this is the CI gate)
+npm test           # vitest run (37 tests as of 2026-06-06)
 npm run lint       # ESLint — 0 errors; gated in CI (chore/lint-zero-2026-06-05)
 ./deploy.sh        # build + rsync dist/ -> Hostinger (run from a host that can SSH to Hostinger)
 ```
+
+> **`npm run build` does NOT run `tsc`.** It uses Vite/esbuild, which transpiles
+> without type-checking. The repo currently has many pre-existing `tsc -b` errors
+> (duplicate i18n keys, `ContactInfo.phoneUri`, etc.) — `tsc -b` is NOT the gate
+> and was never green. `npm run build-with-tsc` exists but will fail on that
+> backlog. Gate on build + test + lint; don't be alarmed by standalone `tsc` errors
+> you didn't introduce (verify by stashing your diff and re-running).
 
 After any deploy, **browser-verify** https://fahrieren.com: app mounts (`#root` non-empty), AdSense
 loader present, real GA id `G-7L1T6D6WL0` (not the `G-XXXXXXXXXX` placeholder), no broken/MIME-error
@@ -71,6 +78,29 @@ Publisher `ca-pub-2016267232144093`. The loader (`adsbygoogle.js`) is in `index.
 render NOTHING (no broken `<ins>`, no policy violation). **Operator must paste real numeric slot IDs**
 to make units fill — no code change needed after that.
 
+## Reliable lead pipeline (no silent drops)
+
+Shipped 2026-06-06, behind `VITE_LEAD_PIPELINE_ENABLED` (default **OFF** = legacy path). Design:
+`docs/design/lead-pipeline.md` + ADR `docs/adr/0001-…`. Key files:
+
+- `src/services/leadOutbox.ts` — durable `localStorage` outbox (key
+  `fahrieren.leadOutbox.v1`). A lead is persisted **before** any network call → never silently
+  dropped. Exponential backoff (2 s→5 min, 6 attempts), idempotency key per item, storage/clock
+  injectable for tests. **Pure of Firebase** — delivery is an injected `deliver` fn.
+- `src/services/leadService.ts` — `LeadService.submitContact/subscribeNewsletter/flush/retry`.
+  Writes the Firestore doc (`addDoc`) with `clientLeadId` (idempotency) + `serverTimestamp()`.
+  Returns `{success}` / `{queued}` (saved, will retry — NOT a failure) / `{error}`. The legacy
+  `dataService` fake-`{success:true}` swallow is bypassed on this path.
+- `src/hooks/index.ts` — `useContactForm`/`useNewsletter` are flag-gated (legacy path byte-identical
+  when OFF); `useLeadOutbox` powers recovery (flush on mount + on `online`).
+- `src/components/leads/LeadOutboxBanner.tsx` — recovery affordance (mounted in `Layout`).
+- `firestore.rules` — `contacts`/`newsletter` now shape/size/allowlist-validated + require
+  `consentAt`/`clientLeadId`/server `createdAt`.
+- i18n keys live under `leads.*` in BOTH the TR and EN blocks of `translationService.ts`.
+
+Operator-gated follow-ups (NOT shipped): App Check enforcement, Cloud Function notification (S3),
+admin LeadsPage (S4), and finally flipping the flag ON in prod + deleting the dead JSONBin stack.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `npm ci && npm run build && npm test && npm run lint` on PRs. Lint is now
@@ -84,8 +114,16 @@ to gate merges and unblock Dependabot PRs.
 - Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - After any change, update `TODO.md` / `ROADMAP.md` / `README.md` / `docs/` to match.
 - Dependency bumps: prefer applying + build/test-verifying on the branch over merging old-base
-  Dependabot PRs (they predate the `/assets/` removal). HOLD breaking majors: Tailwind v4 (#13, build
-  breaks), eslint 10 (#12), eslint-plugin-react-hooks 7 (#15) — do those on dedicated branches.
+  Dependabot PRs (they predate the `/assets/` removal).
+  - **eslint 10 (#12) + eslint-plugin-react-hooks 7 (#15): CLOSED 2026-06-06.** Re-confirmed
+    breaking: eslint 10 rejects react-hooks' legacy string-array `plugins` key in flat config
+    (exit 2). A manual flat-config migration loads, but react-hooks 7's new
+    `react-hooks/set-state-in-effect` rule then flags 6 pre-existing effect violations in
+    `src/hooks/index.ts` → lint exits 1. Needs a dedicated branch: migrate the config AND refactor
+    the effects. Tracked in ROADMAP "Future / Professionalization".
+  - **Tailwind v4 (#13): LEFT OPEN** — major engine/config rewrite with visual implications; needs
+    a dedicated visual-review branch (`@tailwindcss/postcss`, `@import "tailwindcss"`, CSS-first
+    `@theme`). Do NOT auto-merge.
 - Lint baseline lives in service/util/page files as `no-explicit-any`; type with `unknown` /
   `Record<string, unknown>` and narrow, don't suppress.
 - Dead-code rule: verify a file is referenced by 0 importers (full-tree grep) before deleting.

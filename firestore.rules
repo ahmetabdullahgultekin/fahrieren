@@ -17,6 +17,43 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Shape validation for lead-capture writes (reliable lead pipeline).
+    // Even if App Check is bypassed, these reject malformed / oversized / extra
+    // fields, cap message size, require KVKK/GDPR consent, and force server time.
+    function isValidContactLead(data) {
+      return data.keys().hasOnly([
+          'name','email','phone','subject','message',
+          'category','source','language','consentAt',
+          'createdAt','status','clientLeadId','userAgent'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 254
+        && (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 20))
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 200
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 2000
+        && data.category in ['realestate','vehicles','construction','farm','general']
+        && data.source in ['contact_form','product_detail']
+        && data.language in ['tr','en']
+        && data.consentAt is string && data.consentAt.size() > 0
+        && data.createdAt == request.time
+        && data.status == 'new'
+        && data.clientLeadId is string && data.clientLeadId.size() > 0
+        && (!('userAgent' in data) || data.userAgent == null || (data.userAgent is string && data.userAgent.size() <= 500));
+    }
+
+    function isValidNewsletterLead(data) {
+      return data.keys().hasOnly([
+          'email','language','consentAt','createdAt','status','clientLeadId','userAgent'
+        ])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 254
+        && data.language in ['tr','en']
+        && data.consentAt is string && data.consentAt.size() > 0
+        && data.createdAt == request.time
+        && data.status == 'active'
+        && data.clientLeadId is string && data.clientLeadId.size() > 0
+        && (!('userAgent' in data) || data.userAgent == null || (data.userAgent is string && data.userAgent.size() <= 500));
+    }
+
     // ---------------------------------------------------------------------
     // admins — source of truth for admin authorization.
     // Readable only by signed-in users (the app checks its own UID doc).
@@ -48,12 +85,13 @@ service cloud.firestore {
     // via the Console / Admin SDK (which bypass rules).
     // ---------------------------------------------------------------------
     match /contacts/{contactId} {
-      allow create: if true;
+      // Append-only, shape-validated. Admins read/triage/export.
+      allow create: if isValidContactLead(request.resource.data);
       allow read, update, delete: if isAdmin();
     }
 
     match /newsletter/{subscriberId} {
-      allow create: if true;
+      allow create: if isValidNewsletterLead(request.resource.data);
       allow read, update, delete: if isAdmin();
     }
 

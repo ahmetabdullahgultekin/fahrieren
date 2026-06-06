@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {MapPin, MessageCircle, Phone, Send} from 'lucide-react';
 import {useFahriErenConfig} from '../hooks/useFahriErenConfig';
 import {useTranslation} from '../hooks';
+import {isLeadPipelineEnabled, leadService} from '../services/leadService';
 import SEO from '../components/common/SEO';
 import LocationMap from '../components/common/LocationMap';
 import toast from 'react-hot-toast';
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast';
 const ContactPage: React.FC = () => {
     const config = useFahriErenConfig();
     const {t, language} = useTranslation();
+    const pipelineOn = isLeadPipelineEnabled();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -16,6 +18,7 @@ const ContactPage: React.FC = () => {
         subject: '',
         message: ''
     });
+    const [consent, setConsent] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleCallPhone = () => {
@@ -37,10 +40,42 @@ const ContactPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // KVKK/GDPR consent is mandatory when the durable pipeline is active.
+        if (pipelineOn && !consent) {
+            toast.error(t('leads.consent_required'));
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
-            // WhatsApp mesajı oluştur
+            // Durable persistence first (when enabled): the lead is written to
+            // the outbox before any network call, so it can never be silently
+            // dropped — even if the user never sends the WhatsApp message.
+            if (pipelineOn) {
+                const result = await leadService.submitContact({
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone || undefined,
+                    subject: formData.subject,
+                    message: formData.message,
+                    category: 'general',
+                    source: 'contact_form',
+                    language,
+                    consentAt: new Date().toISOString(),
+                });
+                if (result.success) {
+                    toast.success(t('leads.contact_success'));
+                } else if (result.queued) {
+                    // Saved locally, awaiting retry — explicitly NOT a failure.
+                    toast.success(t('leads.queued_title'));
+                } else {
+                    toast.error(t('leads.submit_error'));
+                }
+            }
+
+            // WhatsApp fast-path stays as a parallel hand-off.
             const message = `
 Yeni İletişim Formu Mesajı
 
@@ -56,8 +91,11 @@ ${formData.message}
             const whatsappUrl = config.contact.whatsappUrl(message);
             window.open(whatsappUrl, '_blank');
 
-            toast.success(t('contact.form.success'));
+            if (!pipelineOn) {
+                toast.success(t('contact.form.success'));
+            }
             setFormData({name: '', email: '', phone: '', subject: '', message: ''});
+            setConsent(false);
         } catch (err: unknown) {
             console.error('Contact form submission error:', err);
             toast.error(t('contact.form.error'));
@@ -284,9 +322,22 @@ ${formData.message}
                                     />
                                 </div>
 
+                                {pipelineOn && (
+                                    <label className="flex items-start gap-3 text-sm text-gray-600">
+                                        <input
+                                            type="checkbox"
+                                            name="consent"
+                                            checked={consent}
+                                            onChange={(e) => setConsent(e.target.checked)}
+                                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span>{t('leads.consent_label')}</span>
+                                    </label>
+                                )}
+
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || (pipelineOn && !consent)}
                                     className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {isSubmitting ? (

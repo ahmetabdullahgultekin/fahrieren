@@ -8,39 +8,45 @@ sequenceDiagram
     participant Form as ContactPage /<br/>NewsletterForm
     participant Hook as useContactForm /<br/>useNewsletter (hook)
     participant LeadSvc as LeadService
+    participant Outbox as LeadOutbox<br/>(localStorage,<br/>durable)
     participant AppCheck as Firebase App Check<br/>(reCAPTCHA Enterprise)
     participant Firestore as Firestore<br/>/contacts or /newsletter
     participant Rules as Firestore<br/>Security Rules
     participant CF as Cloud Function<br/>onNewContactLead<br/>(2nd gen)
     participant Admin as Admin<br/>LeadsPage
 
-    note over Visitor,Admin: S1 — Hardened rules + LeadService (flag OFF: dev only)
-    note over Visitor,Admin: S2 — Wired forms + App Check (flag ON: staging)
+    note over Visitor,Admin: S1 — Hardened rules + LeadService + durable outbox (SHIPPED 2026-06-06)
+    note over Visitor,Admin: S2 — Wired forms + App Check (App Check = operator step)
 
     Visitor->>Form: Fills name/email/phone/subject/message<br/>Checks consent checkbox
     Form->>Hook: handleSubmit(formData, consentAt)
-    Hook->>Hook: Client-side validation<br/>(Yup schema: required fields, max lengths)
+    Hook->>Hook: Client-side validation<br/>(required fields, consent gate)
     alt Validation fails
         Hook-->>Form: Return error; show i18n toast (leads.submit_error)
         Form-->>Visitor: Inline field errors; no write
     else Validation passes
-        Hook->>LeadSvc: submitContact(payload)<br/>{ name, email, phone, subject, message,<br/>  category, source, language, consentAt,<br/>  createdAt: serverTimestamp() }
-        LeadSvc->>AppCheck: SDK auto-attaches App Check token<br/>(ReCaptchaEnterpriseProvider)
+        Hook->>LeadSvc: submitContact(payload)
+        LeadSvc->>Outbox: enqueue(kind, payload) — PERSIST FIRST
+        Outbox->>Outbox: write to localStorage<br/>(idempotency key = item.id)
+        note over Outbox: Lead is now durable — never silently dropped,<br/>even if the network call below fails
+        LeadSvc->>AppCheck: SDK auto-attaches App Check token<br/>(ReCaptchaEnterpriseProvider, when enforced)
         AppCheck-->>LeadSvc: Token attached to request
-        LeadSvc->>Firestore: addDoc(collection(db,'contacts'), payload)
+        LeadSvc->>Firestore: addDoc(collection(db,'contacts'),<br/>{ ...payload, clientLeadId, createdAt: serverTimestamp() })
         Firestore->>Rules: Evaluate isValidContactLead(request.resource.data)
-        alt Rules reject (missing consentAt / wrong shape / oversized field)
-            Rules-->>Firestore: DENIED
-            Firestore-->>LeadSvc: FirebaseError permission-denied
-            LeadSvc-->>Hook: { success: false, error: 'permission-denied' }
-            Hook-->>Form: Show error toast (leads.submit_error)
-            Form-->>Visitor: Error — no data lost (no document created)
+        alt Network down / Rules reject / transient error
+            Firestore-->>LeadSvc: Error (network or permission-denied)
+            LeadSvc->>Outbox: mark item pending + schedule backoff retry
+            LeadSvc-->>Hook: { success: false, queued: true }
+            Hook-->>Form: status = 'queued'
+            Form-->>Visitor: "Saved — will retry" (leads.queued_*)<br/>Lead retried on mount / on reconnect / via banner
+            note over Outbox,Visitor: LeadOutboxBanner surfaces queued/failed leads<br/>for manual retry (recovery affordance)
         else Rules accept
             Rules-->>Firestore: ALLOWED
             Firestore-->>LeadSvc: DocumentReference (autoId)
+            LeadSvc->>Outbox: mark item sent (docId)
             LeadSvc-->>Hook: { success: true, docId }
             Hook-->>Form: status = 'success'
-            Form-->>Visitor: Success toast (leads.contact_success)<br/>Form cleared; button disabled 30 s
+            Form-->>Visitor: Success toast (leads.contact_success)<br/>Form cleared
 
             note over Visitor,Admin: Lead is now durable in Firestore — source of truth
 
