@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import apiManager from '../services/apiManager';
-import type {ContactForm, FilterOptions, Product} from '../types';
+import {isLeadPipelineEnabled, leadService} from '../services/leadService';
+import {leadOutbox} from '../services/leadOutbox';
+import type {ContactForm, FilterOptions, Language, LeadCategory, LeadSource, Product} from '../types';
 
 // Re-export the translation hook from the context definition (non-component module)
 export {useTranslation, useLanguage} from '../contexts/LanguageContextDef';
@@ -255,16 +257,51 @@ export const useProducts = () => {
     };
 };
 
-// Newsletter hook with API Manager integration
+// A lead submission can end in one of four explicit states. `queued` means the
+// lead is durably saved in the local outbox but not yet delivered — it will be
+// retried; the user is told it is safe, never that it failed silently.
+export type LeadStatus = 'idle' | 'success' | 'queued' | 'error';
+
+// Newsletter hook.
+//
+// When VITE_LEAD_PIPELINE_ENABLED is true, submissions go through the durable
+// LeadService (outbox + retry + idempotency) and can never be silently dropped.
+// When the flag is OFF the legacy apiManager path is used, byte-identical to
+// today (reversible kill-switch).
 export const useNewsletter = () => {
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [status, setStatus] = useState<LeadStatus>('idle');
 
-    const subscribe = useCallback(async () => {
+    const subscribe = useCallback(async (language: Language = 'tr') => {
         if (!email || isSubmitting) return;
 
         setIsSubmitting(true);
+
+        if (isLeadPipelineEnabled()) {
+            // Durable path: enqueue + try-deliver. A network failure leaves the
+            // lead queued for retry, NOT lost.
+            const result = await leadService.subscribeNewsletter({
+                email,
+                language,
+                consentAt: new Date().toISOString(),
+            });
+            if (result.success) {
+                setStatus('success');
+                setEmail('');
+                apiManager.trackAnalytics('newsletter_subscribe', {email});
+            } else if (result.queued) {
+                setStatus('queued');
+                setEmail('');
+            } else {
+                setStatus('error');
+            }
+            setIsSubmitting(false);
+            setTimeout(() => setStatus('idle'), 4000);
+            return;
+        }
+
+        // Legacy path (flag OFF) — unchanged.
         try {
             const response = await apiManager.subscribeNewsletter(email);
 
@@ -307,16 +344,48 @@ export const useContactForm = () => {
         message: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [status, setStatus] = useState<LeadStatus>('idle');
 
     const updateField = useCallback((field: keyof ContactForm, value: string) => {
         setFormData(prev => ({...prev, [field]: value}));
     }, []);
 
-    const submitForm = useCallback(async () => {
+    const submitForm = useCallback(async (opts?: {
+        language?: Language;
+        category?: LeadCategory;
+        source?: LeadSource;
+    }) => {
         if (isSubmitting) return;
 
         setIsSubmitting(true);
+
+        if (isLeadPipelineEnabled()) {
+            // Durable path: the lead is persisted in the outbox before any
+            // network call, so it is never silently dropped.
+            const result = await leadService.submitContact({
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone || undefined,
+                subject: formData.subject,
+                message: formData.message,
+                category: opts?.category ?? 'general',
+                source: opts?.source ?? 'contact_form',
+                language: opts?.language ?? 'tr',
+                consentAt: new Date().toISOString(),
+            });
+            if (result.success || result.queued) {
+                setStatus(result.success ? 'success' : 'queued');
+                setFormData({name: '', email: '', phone: '', subject: '', message: ''});
+                apiManager.trackAnalytics('contact_form_submit', {subject: formData.subject});
+            } else {
+                setStatus('error');
+            }
+            setIsSubmitting(false);
+            setTimeout(() => setStatus('idle'), 6000);
+            return;
+        }
+
+        // Legacy path (flag OFF) — unchanged.
         try {
             const response = await apiManager.sendContactMessage(formData);
 
@@ -364,5 +433,68 @@ export const useContactForm = () => {
         resetForm,
         isSubmitting,
         status
+    };
+};
+
+// Lead outbox hook — powers the recovery affordance.
+//
+// Exposes any leads that are still queued or have permanently failed, and a
+// `retry`/`flushNow` action to re-attempt delivery. It flushes due items on
+// mount and whenever the browser reconnects, so a lead saved while offline is
+// delivered automatically once connectivity returns. No-op when the pipeline
+// flag is OFF.
+export const useLeadOutbox = () => {
+    const [items, setItems] = useState(() =>
+        isLeadPipelineEnabled() ? leadOutbox.pending() : []);
+    const [isFlushing, setIsFlushing] = useState(false);
+
+    const refresh = useCallback(() => {
+        setItems(leadOutbox.pending());
+    }, []);
+
+    const flushNow = useCallback(async () => {
+        if (!isLeadPipelineEnabled() || isFlushing) return;
+        setIsFlushing(true);
+        try {
+            await leadService.flush();
+        } finally {
+            setIsFlushing(false);
+            refresh();
+        }
+    }, [isFlushing, refresh]);
+
+    const retry = useCallback(async (id: string) => {
+        if (!isLeadPipelineEnabled()) return;
+        await leadService.retry(id).catch(() => undefined);
+        refresh();
+    }, [refresh]);
+
+    const discard = useCallback((id: string) => {
+        leadOutbox.remove(id);
+        refresh();
+    }, [refresh]);
+
+    useEffect(() => {
+        if (!isLeadPipelineEnabled()) return;
+
+        // Flush anything left over from a previous session on first mount.
+        void flushNow();
+
+        const onOnline = () => void flushNow();
+        window.addEventListener('online', onOnline);
+        return () => window.removeEventListener('online', onOnline);
+        // flushNow is stable enough for mount; intentionally run once.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return {
+        items,
+        failedCount: items.filter(i => i.status === 'failed').length,
+        pendingCount: items.filter(i => i.status !== 'failed').length,
+        isFlushing,
+        flushNow,
+        retry,
+        discard,
+        refresh,
     };
 };

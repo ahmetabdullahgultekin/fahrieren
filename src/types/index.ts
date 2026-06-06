@@ -86,6 +86,76 @@ export interface NewsletterSubscription {
     timestamp: number;
 }
 
+// ---------------------------------------------------------------------------
+// Reliable Lead Pipeline (no silent drops)
+//
+// A submitted lead is first written to a durable local OUTBOX (localStorage),
+// then flushed to the backend. The outbox survives reloads/crashes so a lead
+// is never lost if the network is down or the write fails. See
+// docs/design/lead-pipeline.md.
+// ---------------------------------------------------------------------------
+
+export type LeadCategory = 'realestate' | 'vehicles' | 'construction' | 'farm' | 'general';
+export type LeadSource = 'contact_form' | 'product_detail';
+export type LeadKind = 'contact' | 'newsletter';
+
+/** Status of a lead while it lives in the local outbox. */
+export type OutboxStatus = 'pending' | 'sending' | 'sent' | 'failed';
+
+/** Payload for a contact-form lead (the durable record we persist). */
+export interface ContactLeadPayload {
+    name: string;        // 1–200
+    email: string;       // 1–254
+    phone?: string;      // 0–20
+    subject: string;     // 1–200
+    message: string;     // 1–2000
+    category: LeadCategory;
+    source: LeadSource;
+    language: Language;
+    consentAt: string;   // ISO 8601, required (KVKK/GDPR)
+}
+
+/** Payload for a newsletter sign-up lead. */
+export interface NewsletterLeadPayload {
+    email: string;       // 1–254
+    language: Language;
+    consentAt: string;   // ISO 8601, required
+}
+
+export type LeadPayload = ContactLeadPayload | NewsletterLeadPayload;
+
+/** One durable entry in the local outbox. */
+export interface OutboxItem {
+    /** Stable idempotency key — dedupes retries of the SAME submission. */
+    id: string;
+    kind: LeadKind;
+    payload: LeadPayload;
+    status: OutboxStatus;
+    /** Number of delivery attempts made so far. */
+    attempts: number;
+    /** ms epoch the item was first enqueued. */
+    createdAt: number;
+    /** ms epoch of the last attempt (undefined before the first). */
+    lastAttemptAt?: number;
+    /** Earliest ms epoch the next attempt may run (backoff schedule). */
+    nextAttemptAt: number;
+    /** Last error message, surfaced to the user for recovery. */
+    lastError?: string;
+    /** Backend document id once the write succeeds. */
+    docId?: string;
+}
+
+/** Result of attempting to deliver a single lead. */
+export interface LeadResult {
+    success: boolean;
+    /** The outbox id (idempotency key) — always returned, even on failure. */
+    id: string;
+    docId?: string;
+    error?: string;
+    /** True when the lead is safely persisted in the outbox but not yet delivered. */
+    queued?: boolean;
+}
+
 export interface ApiResponse<T> {
     success: boolean;
     data: T;

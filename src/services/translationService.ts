@@ -367,6 +367,23 @@ export class TranslationService {
                 installDesc: 'Hızlı erişim için uygulamayı cihazınıza yükleyin',
                 install: 'Yükle',
                 later: 'Daha Sonra'
+            },
+            leads: {
+                consent_label: 'Gizlilik Politikası metnini okudum ve kişisel verilerimin işlenmesini kabul ediyorum.',
+                consent_required: 'Devam etmek için onay gereklidir.',
+                contact_success: 'Mesajınız alındı! En kısa sürede dönüş yapacağız.',
+                newsletter_success: 'Aboneliğiniz başarıyla oluşturuldu.',
+                submit_error: 'Gönderim sırasında bir hata oluştu. Lütfen tekrar deneyin.',
+                queued_title: 'Mesajınız güvende',
+                queued_desc: 'Bağlantı sorunu nedeniyle henüz iletilemedi, ancak cihazınıza kaydedildi ve otomatik olarak yeniden denenecek.',
+                outbox_title: 'Bekleyen Talepler',
+                outbox_pending: 'Gönderiliyor…',
+                outbox_failed: 'İletilemedi',
+                outbox_retry: 'Tekrar Dene',
+                outbox_retry_all: 'Tümünü Tekrar Dene',
+                outbox_discard: 'Vazgeç',
+                outbox_lead_contact: 'İletişim talebi',
+                outbox_lead_newsletter: 'Bülten aboneliği'
             }
         },
         en: {
@@ -709,6 +726,23 @@ export class TranslationService {
                 installDesc: 'Install the app to your device for quick access',
                 install: 'Install',
                 later: 'Later'
+            },
+            leads: {
+                consent_label: 'I have read the Privacy Policy and consent to the processing of my personal data.',
+                consent_required: 'Consent is required to continue.',
+                contact_success: 'Your message was received! We will get back to you shortly.',
+                newsletter_success: 'You have successfully subscribed.',
+                submit_error: 'An error occurred during submission. Please try again.',
+                queued_title: 'Your message is safe',
+                queued_desc: 'It could not be delivered yet due to a connection issue, but it was saved on your device and will be retried automatically.',
+                outbox_title: 'Pending requests',
+                outbox_pending: 'Sending…',
+                outbox_failed: 'Not delivered',
+                outbox_retry: 'Retry',
+                outbox_retry_all: 'Retry all',
+                outbox_discard: 'Discard',
+                outbox_lead_contact: 'Contact request',
+                outbox_lead_newsletter: 'Newsletter sign-up'
             }
         }
     };
