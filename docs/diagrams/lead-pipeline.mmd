@@ -1,0 +1,69 @@
+---
+title: fahrieren.com — Reliable Lead Pipeline (design/lead-pipeline-2026-06-05)
+---
+sequenceDiagram
+    autonumber
+
+    actor Visitor as Visitor<br/>(browser)
+    participant Form as ContactPage /<br/>NewsletterForm
+    participant Hook as useContactForm /<br/>useNewsletter (hook)
+    participant LeadSvc as LeadService
+    participant AppCheck as Firebase App Check<br/>(reCAPTCHA Enterprise)
+    participant Firestore as Firestore<br/>/contacts or /newsletter
+    participant Rules as Firestore<br/>Security Rules
+    participant CF as Cloud Function<br/>onNewContactLead<br/>(2nd gen)
+    participant Admin as Admin<br/>LeadsPage
+
+    note over Visitor,Admin: S1 — Hardened rules + LeadService (flag OFF: dev only)
+    note over Visitor,Admin: S2 — Wired forms + App Check (flag ON: staging)
+
+    Visitor->>Form: Fills name/email/phone/subject/message<br/>Checks consent checkbox
+    Form->>Hook: handleSubmit(formData, consentAt)
+    Hook->>Hook: Client-side validation<br/>(Yup schema: required fields, max lengths)
+    alt Validation fails
+        Hook-->>Form: Return error; show i18n toast (leads.submit_error)
+        Form-->>Visitor: Inline field errors; no write
+    else Validation passes
+        Hook->>LeadSvc: submitContact(payload)<br/>{ name, email, phone, subject, message,<br/>  category, source, language, consentAt,<br/>  createdAt: serverTimestamp() }
+        LeadSvc->>AppCheck: SDK auto-attaches App Check token<br/>(ReCaptchaEnterpriseProvider)
+        AppCheck-->>LeadSvc: Token attached to request
+        LeadSvc->>Firestore: addDoc(collection(db,'contacts'), payload)
+        Firestore->>Rules: Evaluate isValidContactLead(request.resource.data)
+        alt Rules reject (missing consentAt / wrong shape / oversized field)
+            Rules-->>Firestore: DENIED
+            Firestore-->>LeadSvc: FirebaseError permission-denied
+            LeadSvc-->>Hook: { success: false, error: 'permission-denied' }
+            Hook-->>Form: Show error toast (leads.submit_error)
+            Form-->>Visitor: Error — no data lost (no document created)
+        else Rules accept
+            Rules-->>Firestore: ALLOWED
+            Firestore-->>LeadSvc: DocumentReference (autoId)
+            LeadSvc-->>Hook: { success: true, docId }
+            Hook-->>Form: status = 'success'
+            Form-->>Visitor: Success toast (leads.contact_success)<br/>Form cleared; button disabled 30 s
+
+            note over Visitor,Admin: Lead is now durable in Firestore — source of truth
+
+            note over CF,Admin: S3 — Cloud Function notification
+            Firestore-->>CF: onDocumentCreated event<br/>(/contacts/{contactId})
+            CF->>CF: Read event.data.data()<br/>Check notifiedAt (idempotency guard)
+            alt notifiedAt already set (retry)
+                CF->>CF: Exit immediately (no double-notify)
+            else First invocation
+                CF->>CF: Format summary (TR):<br/>name, email, phone, subject, category
+                CF->>Firestore: updateDoc (Admin SDK, bypasses rules):<br/>notifiedAt = serverTimestamp()<br/>whatsappDeepLink = formatted URL
+                CF->>CF: Log structured JSON to Cloud Functions log
+                opt NOTIFY_EMAIL_TO secret is set
+                    CF->>CF: Send HTML email via nodemailer (SMTP)
+                end
+            end
+        end
+    end
+
+    note over Visitor,Admin: S4 — Admin view
+    Admin->>Firestore: query('contacts', orderBy('createdAt','desc'), limit(50))<br/>[Auth: isAdmin() check via admins/{uid} doc]
+    Firestore-->>Admin: Lead documents (newest first)
+    Admin->>Admin: Display lead list with filters<br/>(status: new / followed-up, category)
+    Admin->>Firestore: updateDoc(contactRef, { status: 'followed-up' })
+    Admin->>Admin: CSV export (client-side)
+    Admin->>Admin: Open WhatsApp deep-link per lead<br/>(pre-fills context in owner's WhatsApp)
