@@ -16,7 +16,7 @@ export const ADS_CONFIG = {
 
     // Reklam Birimleri - Her pozisyon için farklı slot ID
     //
-    // ⚠️ TODO(operator): These are PLACEHOLDER slot IDs — they do NOT exist in
+    // ⚠️ TODO(#97)(operator): These are PLACEHOLDER slot IDs — they do NOT exist in
     // the ca-pub-2016267232144093 AdSense account, so units will stay blank
     // until replaced. Create one ad unit per position in the AdSense console
     // (Ads → By ad unit → Display ads), copy each numeric data-ad-slot value,
