@@ -1,0 +1,57 @@
+name: Deploy to Hetzner
+
+# Replaces the old Hostinger rsync deploy (hosting plan cancelled 2026-06).
+# fahrieren.com now runs as an nginx container on the Hetzner box behind Traefik
+# (auto Let's Encrypt TLS). The Vite build runs on the box, then the container is
+# (re)built to package the fresh dist/.
+#
+# Required repo/org secrets (copy from the FIVUCSAS repo):
+#   VPS_HOST     = 116.203.222.213
+#   VPS_USER     = deploy
+#   VPS_SSH_KEY  = private key authorised for deploy@the box
+# The build reads firebase config from the box's gitignored .env (already present).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'public/**'
+      - 'images/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - 'Dockerfile'
+      - 'nginx.conf'
+      - 'docker-compose.prod.yml'
+      - '.github/workflows/deploy-hetzner.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-fahrieren
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy fahrieren.com
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        timeout-minutes: 10
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 8m
+          script: |
+            set -e
+            cd /opt/projects/fahrieren
+            git pull origin master
+            npm ci
+            npm run build
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml ps
+            curl -skf -o /dev/null --resolve fahrieren.com:443:127.0.0.1 \
+              https://fahrieren.com/ && echo "fahrieren.com healthy"
